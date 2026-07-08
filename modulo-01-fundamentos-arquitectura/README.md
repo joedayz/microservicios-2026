@@ -56,6 +56,11 @@ ejemplos es el mismo del caso práctico: **e-commerce multi-tenant**.
 codigo/src/main/java/pe/joedayz/microservicios/modulo01/
 ├── App.java                      # runner que ejecuta todas las demos
 ├── solid/                        # SOLID: antes (mal) y después (bien)
+│   ├── srp/                      # OrderManager vs servicios separados
+│   ├── ocp/                      # DiscountEngine + DiscountRule
+│   ├── liskov/                   # PaymentGateway (Stripe, Culqi)
+│   ├── isp/                      # CatalogReadApi vs CatalogAdminApi
+│   └── dip/                      # InventoryPort + adaptadores
 ├── ddd/                          # DDD táctico: VO, Entity, Aggregate, Domain Events
 ├── patterns/
 │   ├── cqrs/                     # Command Query Responsibility Segregation

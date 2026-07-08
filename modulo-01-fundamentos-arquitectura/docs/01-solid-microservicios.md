@@ -139,7 +139,7 @@ no elimines campos, no cambies semántica, solo agrega opcionales.
 **Regla práctica (Tolerant Reader / Postel's Law):** *sé estricto en lo que emites, tolerante
 en lo que aceptas.*
 
-Ver código: `solid/lsp/` — un `PaymentGateway` cuyas implementaciones (`StripeGateway`,
+Ver código: `solid/liskov/` — un `PaymentGateway` cuyas implementaciones (`StripeGateway`,
 `CulqiGateway`) respetan el mismo contrato y post-condiciones.
 
 ### Versionado compatible de eventos (LSP)
@@ -169,7 +169,22 @@ admin tienen necesidades distintas. En vez de una interfaz gorda, ofrece interfa
 (esto justifica el patrón **BFF – Backend For Frontend**).
 
 Ver código: `solid/isp/` — separamos `CatalogReadApi` (lo que necesita el storefront) de
-`CatalogAdminApi` (lo que necesita el back-office).
+`CatalogAdminApi` (lo que necesita el back-office). Ver también el anti-patrón `CatalogGodApi`.
+
+| Clase | Rol |
+|-------|-----|
+| `CatalogGodApi` | Anti-patrón: interfaz gorda (viola ISP) |
+| `CatalogReadApi` | Solo lectura para storefront / BFF móvil |
+| `CatalogAdminApi` | CRUD y SEO para panel admin |
+| `StorefrontBff` | Depende solo de `CatalogReadApi` |
+| `AdminBff` | Depende solo de `CatalogAdminApi` |
+
+Ejecutar solo esta demo:
+
+```bash
+cd codigo
+mvn -q compile exec:java -Dexec.mainClass=pe.joedayz.microservicios.modulo01.solid.isp.Main
+```
 
 ### God API vs interfaces finas (ISP)
 

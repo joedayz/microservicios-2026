@@ -20,6 +20,9 @@ import pe.joedayz.microservicios.modulo01.patterns.saga.OrderSaga;
 import pe.joedayz.microservicios.modulo01.patterns.saga.PaymentPort;
 import pe.joedayz.microservicios.modulo01.patterns.saga.SagaResult;
 import pe.joedayz.microservicios.modulo01.solid.dip.InMemoryInventoryAdapter;
+import pe.joedayz.microservicios.modulo01.solid.isp.AdminBff;
+import pe.joedayz.microservicios.modulo01.solid.isp.InMemoryCatalogService;
+import pe.joedayz.microservicios.modulo01.solid.isp.StorefrontBff;
 import pe.joedayz.microservicios.modulo01.solid.ocp.DiscountEngine;
 import pe.joedayz.microservicios.modulo01.solid.ocp.rules.FreeShippingOverAmountRule;
 import pe.joedayz.microservicios.modulo01.solid.ocp.rules.PercentageRule;
@@ -70,9 +73,9 @@ public class App {
         System.out.println("\nFin de las demos. Revisa la teoria en ../docs/.");
     }
 
-    /** SOLID: OCP (motor de descuentos extensible) + SRP (servicio de precios dedicado). */
+    /** SOLID: OCP + SRP + ISP + DIP (ver paquetes solid/*). */
     private void demoSolid() {
-        section("1) SOLID en accion (OCP + SRP + DIP)");
+        section("1) SOLID en accion (OCP + SRP + ISP)");
         TenantContext.set(TenantId.of("tienda-deportes"));
 
         Order order = Order.create(TenantContext.require(), CustomerId.of("cliente-001"), "PEN");
@@ -90,6 +93,16 @@ public class App {
         System.out.println("   Total bruto : " + order.total());
         System.out.println("   Descuentos  : " + engine.totalDiscount(order));
         System.out.println("   Precio final: " + pricing.finalPrice(order));
+
+        // ISP: BFF storefront solo usa CatalogReadApi; admin solo CatalogAdminApi.
+        InMemoryCatalogService catalog = new InMemoryCatalogService();
+        StorefrontBff storefront = new StorefrontBff(catalog);
+        AdminBff admin = new AdminBff(catalog);
+        System.out.println("   [ISP] Storefront ve " + storefront.homePage().size()
+                + " productos publicados (sin borradores)");
+        System.out.println("   [ISP] Admin ve " + admin.dashboard().size()
+                + " productos (incluye borradores)");
+
         TenantContext.clear();
     }
 
