@@ -100,8 +100,13 @@ sequenceDiagram
     SVC->>TC: TenantContext.clear()
 ```
 
-Ver código: `tenant/TenantContext.java` — un contexto por hilo (ThreadLocal) que transporta el
-tenant, y `ddd/order/Order.java` que **exige** `TenantId` al crearse (no existe pedido sin tenant).
+Ver código: `tenant/TenantContext.java` — un contexto por hilo que transporta el tenant, y
+`ddd/order/Order.java` que **exige** `TenantId` al crearse (no existe pedido sin tenant).
+
+> **Nota Java 25:** en el prototipo de este módulo usamos `ThreadLocal`. En los microservicios
+> reales (y en el fan-out con virtual threads) migraremos a **`ScopedValue`** (final desde
+> Java 25): se propaga de forma inmutable al alcance estructurado y evita los problemas de
+> fuga de contexto típicos de `ThreadLocal` con pools de hilos.
 
 ## 5.3 Bounded Contexts
 
@@ -252,26 +257,122 @@ flowchart LR
     M14 --> M15
 ```
 
-## 5.6 Requisitos no funcionales que guían el diseño
+## 5.6 Modelo de concurrencia: Virtual Threads + Structured Concurrency
+
+La plataforma es **I/O-bound**: cada request de tienda espera red (HTTP a otros servicios),
+PostgreSQL, Redis o Kafka. Con miles de tenants concurrentes, un pool clásico de platform
+threads se agota; con **virtual threads** (Java 21+, estables) cada request bloqueante es barato.
+
+**Decisión del curso:** Spring Boot MVC / Quarkus REST **sobre virtual threads**. No necesitamos
+WebFlux solo por throughput: el modelo imperativo + VT escala lo suficiente para este SaaS y
+mantiene el código legible (Saga, Outbox, DDD).
+
+### Dónde encaja cada pieza
+
+| Pieza | Rol en la plataforma |
+|-------|----------------------|
+| **Virtual Threads** | Un VT por request HTTP; llamadas sync a Catalog/Payment/Inventory sin bloquear un OS thread |
+| **Structured Concurrency** (`StructuredTaskScope`) | Fan-out del BFF y lecturas paralelas con ciclo de vida claro (cancelación, errores, join) |
+| **ScopedValue\<TenantId\>** | Propaga el tenant al alcance del request y a subtareas hijas sin `ThreadLocal` frágil |
+
+### Fan-out del BFF (caso estrella de Structured Concurrency)
+
+La home del storefront necesita **en paralelo** catálogo, precios y stock. Sin SC, un
+`CompletableFuture` suelto deja subtareas huérfanas si el cliente cancela. Con
+`StructuredTaskScope`, el alcance padre **espera, cancela o propaga fallo** de forma estructurada:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as Usuario
+    participant BFF as BFF Web
+    participant SCOPE as StructuredTaskScope
+    participant CAT as Catalog
+    participant PRI as Pricing
+    participant INV as Inventory
+
+    U->>BFF: GET /home (tenant_id en JWT)
+    BFF->>BFF: ScopedValue.where(TENANT, id).run(...)
+    BFF->>SCOPE: open (ShutdownOnFailure)
+    par Fan-out en virtual threads
+        SCOPE->>CAT: listPublished()
+        SCOPE->>PRI: pricesFor(skus)
+        SCOPE->>INV: availability(skus)
+    end
+    SCOPE-->>BFF: join + throwIfFailed
+    BFF-->>U: HomeView agregada
+    Note over SCOPE: Si Pricing falla o el cliente cancela,<br/>se cancelan Catalog e Inventory
+```
+
+Idea de código (preview en Java 25 — activar `--enable-preview` mientras SC no sea final):
+
+```java
+try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
+    Subtask<List<Product>> products = scope.fork(() -> catalog.listPublished());
+    Subtask<Map<Sku, Money>> prices  = scope.fork(() -> pricing.pricesFor(skus));
+    Subtask<Map<Sku, Integer>> stock = scope.fork(() -> inventory.availability(skus));
+
+    scope.join().throwIfFailed();
+    return HomeView.of(products.get(), prices.get(), stock.get());
+}
+```
+
+### Checkout: sync secuencial vs paralelo
+
+- **Saga de checkout** (pago → stock → confirmación): pasos **secuenciales** con compensaciones;
+  no se paralelizan (dependencias de negocio). Siguen corriendo en un virtual thread del request.
+- **BFF / lecturas / enriquecimiento**: ahí sí **Structured Concurrency** (fan-out / fan-in).
+
+```mermaid
+flowchart LR
+    subgraph VT["Runtime: virtual threads"]
+        REQ["Request HTTP<br/>1 VT"]
+        REQ --> SAGA["OrderSaga<br/>pasos secuenciales"]
+        REQ --> BFF["BFF Home<br/>StructuredTaskScope"]
+    end
+
+    BFF --> CAT["Catalog"]
+    BFF --> PRI["Pricing"]
+    BFF --> INV["Inventory"]
+    SAGA --> PAY["Payment"]
+    SAGA --> INV2["Inventory"]
+    SAGA --> ORD["Order"]
+```
+
+### Por qué no WebFlux por defecto
+
+| Enfoque | Pros | Contras en este curso |
+|---------|------|------------------------|
+| **MVC + Virtual Threads** | Código imperativo, DDD/Saga naturales, debug simple | Bloqueo “barato”, no streaming reactivo nativo |
+| **WebFlux / Mutiny** | Backpressure, streaming | Modelo mental distinto; mezcla mal con libs bloqueantes |
+
+Regla: **VT + Structured Concurrency primero**; WebFlux solo si el caso exige streaming o APIs
+reactivas de punta a punta (lo vemos al comparar en el Módulo 2).
+
+## 5.7 Requisitos no funcionales que guían el diseño
 
 - **Aislamiento por tenant** (seguridad y datos) — no negociable.
 - **Escalabilidad horizontal** por servicio (Black Friday escala solo Catalog/Order).
+- **Alta concurrencia I/O** con **virtual threads** (muchos tenants, requests bloqueantes baratos).
+- **Fan-out seguro** en BFFs con **concurrencia estructurada** (cancelación y errores acotados).
 - **Resiliencia**: la caída de Notification no impide comprar (desacople por eventos).
 - **Consistencia eventual** entre servicios (Saga + Outbox), fuerte dentro del agregado.
 - **Observabilidad** end-to-end con `trace_id` **y** `tenant_id` en cada log/traza.
 
-## 5.7 Qué construimos en el código de este módulo
+## 5.8 Qué construimos en el código de este módulo
 
 El código de `codigo/` es un **prototipo en memoria, sin frameworks**, que demuestra los
 conceptos de forma pura y ejecutable:
 
-- `TenantContext` + `TenantId` → multi-tenancy.
+- `TenantContext` + `TenantId` → multi-tenancy (`ThreadLocal` aquí; `ScopedValue` en módulos siguientes).
 - Agregado `Order` con value objects (`Money`, `Sku`, `Quantity`) y domain events → DDD.
 - `OrderSaga` con compensaciones → Saga.
 - `OutboxRelay` → Transactional Outbox.
 - `OrderQueries` sobre un read model → CQRS.
 
-En el **Módulo 2** convertimos estos conceptos en microservicios reales con Spring Boot 4 y Quarkus 3.
+En el **Módulo 2** convertimos estos conceptos en microservicios reales con Spring Boot 4 y
+Quarkus 3, habilitando **virtual threads**. El fan-out del BFF con **Structured Concurrency**
+lo aplicamos cuando armamos la comunicación síncrona entre servicios.
 
 ---
 
@@ -280,3 +381,8 @@ En el **Módulo 2** convertimos estos conceptos en microservicios reales con Spr
 1. Elige la estrategia de multi-tenancy para un cliente bancario y justifícala.
 2. Añade un bounded context de "Reviews/Reseñas". ¿De qué otros contextos depende?
 3. Diseña el flujo de "cancelación de pedido ya pagado" como una Saga con compensaciones.
+4. La pantalla de detalle de producto del BFF debe llamar a Catalog, Pricing e Inventory.
+   Esboza el `StructuredTaskScope` (fork/join) y describe qué ocurre si Pricing tarda de más
+   y el cliente cancela la request.
+5. ¿Por qué `ScopedValue` encaja mejor que `ThreadLocal` cuando el BFF hace fan-out en
+   virtual threads?
