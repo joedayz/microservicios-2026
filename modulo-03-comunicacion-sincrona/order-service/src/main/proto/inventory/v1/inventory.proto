@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package inventory.v1;
+
+option java_multiple_files = true;
+option java_package = "pe.joedayz.microservicios.inventory.v1";
+option java_outer_classname = "InventoryProto";
+
+service InventoryService {
+  rpc CheckStock (CheckStockRequest) returns (CheckStockResponse);
+  rpc GetAvailability (GetAvailabilityRequest) returns (GetAvailabilityResponse);
+}
+
+message CheckStockRequest {
+  string tenant_id = 1;
+  string sku = 2;
+  int32 quantity = 3;
+}
+
+message CheckStockResponse {
+  bool available = 1;
+  int32 remaining = 2;
+  string message = 3;
+}
+
+message GetAvailabilityRequest {
+  string tenant_id = 1;
+  string sku = 2;
+}
+
+message GetAvailabilityResponse {
+  string sku = 1;
+  int32 quantity_on_hand = 2;
+  string warehouse = 3;
+}

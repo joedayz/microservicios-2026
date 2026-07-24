@@ -109,4 +109,4 @@ flowchart LR
 
 ---
 
-*Siguiente módulo:* **Módulo 3 – Comunicación Síncrona** (OpenAPI, gRPC, WebClient, Feign, versionado).
+*Siguiente módulo:* **[Módulo 3 – Comunicación Síncrona](../modulo-03-comunicacion-sincrona/)** (OpenAPI, gRPC, WebClient, Feign, versionado).

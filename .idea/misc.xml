@@ -8,6 +8,7 @@
         <option value="$PROJECT_DIR$/modulo-01-fundamentos-arquitectura/codigo/pom.xml" />
         <option value="$PROJECT_DIR$/modulo-02-spring-boot-vs-quarkus/spring-boot-mvc/catalog-service/pom.xml" />
         <option value="$PROJECT_DIR$/modulo-02-spring-boot-vs-quarkus/spring-boot-webflux/catalog-service/pom.xml" />
+        <option value="$PROJECT_DIR$/modulo-03-comunicacion-sincrona/catalog-service/pom.xml" />
       </list>
     </option>
   </component>

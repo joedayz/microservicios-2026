@@ -1,0 +1,98 @@
+openapi: 3.1.0
+info:
+  title: Catalog API
+  version: 1.0.0
+  description: |
+    Contrato contract-first de referencia para el microservicio Catalog (JoeDayz — Modulo 3).
+    Todas las operaciones requieren el header multi-tenant X-Tenant-ID.
+
+servers:
+  - url: http://localhost:8081
+    description: Local development
+
+paths:
+  /api/v1/products:
+    get:
+      operationId: listProducts
+      summary: Listar productos del tenant
+      description: Devuelve todos los productos del tenant indicado en X-Tenant-ID.
+      tags:
+        - Products
+      parameters:
+        - $ref: '#/components/parameters/X-Tenant-ID'
+      responses:
+        '200':
+          description: Lista de productos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+        '400':
+          description: Header X-Tenant-ID ausente o invalido
+
+  /api/v1/products/{sku}:
+    get:
+      operationId: getProductBySku
+      summary: Obtener producto por SKU
+      description: Busca un producto por SKU dentro del tenant del header X-Tenant-ID.
+      tags:
+        - Products
+      parameters:
+        - $ref: '#/components/parameters/X-Tenant-ID'
+        - name: sku
+          in: path
+          required: true
+          description: SKU del producto
+          schema:
+            type: string
+            example: ZAP-RUN-42
+      responses:
+        '200':
+          description: Producto encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Header X-Tenant-ID ausente o invalido
+        '404':
+          description: Producto no encontrado
+
+components:
+  parameters:
+    X-Tenant-ID:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      description: Identificador del tenant (ej. tienda-deportes)
+      schema:
+        type: string
+        example: tienda-deportes
+
+  schemas:
+    Product:
+      type: object
+      required:
+        - sku
+        - name
+        - price
+        - currency
+      properties:
+        sku:
+          type: string
+          example: ZAP-RUN-42
+        name:
+          type: string
+          example: Zapatilla Running Pro
+        description:
+          type: string
+          example: Amortiguacion maxima para corredores
+        price:
+          type: number
+          format: decimal
+          example: 300.00
+        currency:
+          type: string
+          example: PEN
