@@ -3,5 +3,7 @@
   <component name="Encoding">
     <file url="file://$PROJECT_DIR$/modulo-01-fundamentos-arquitectura/codigo/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/modulo-01-fundamentos-arquitectura/codigo/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/modulo-02-spring-boot-vs-quarkus/spring-boot-mvc/catalog-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/modulo-02-spring-boot-vs-quarkus/spring-boot-webflux/catalog-service/src/main/java" charset="UTF-8" />
   </component>
 </project>

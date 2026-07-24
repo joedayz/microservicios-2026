@@ -15,7 +15,8 @@ Al terminar este módulo serás capaz de:
 2. Modelar un dominio con **DDD** (bounded contexts, agregados, value objects, domain events).
 3. Diseñar servicios que cumplan la metodología **12-Factor App**.
 4. Reconocer y aplicar los patrones clave: **Saga, CQRS, Outbox, API Gateway, BFF y Strangler Fig**.
-5. Analizar el caso práctico del curso: una **plataforma e-commerce multi-tenant**.
+5. Analizar el caso práctico del curso: una **plataforma e-commerce multi-tenant**
+   con **virtual threads** y **concurrencia estructurada**.
 
 ## Contenido
 
@@ -25,7 +26,7 @@ Al terminar este módulo serás capaz de:
 | 2 | Domain-Driven Design (DDD) | [docs/02-ddd-domain-driven-design.md](docs/02-ddd-domain-driven-design.md) |
 | 3 | The Twelve-Factor App | [docs/03-12-factor-app.md](docs/03-12-factor-app.md) |
 | 4 | Patrones clave (Saga, CQRS, Outbox, Gateway, BFF, Strangler Fig) | [docs/04-patrones-clave.md](docs/04-patrones-clave.md) |
-| 5 | Caso práctico: e-commerce multi-tenant | [docs/05-caso-practico-ecommerce-multitenant.md](docs/05-caso-practico-ecommerce-multitenant.md) |
+| 5 | Caso práctico: e-commerce multi-tenant (VT + Structured Concurrency) | [docs/05-caso-practico-ecommerce-multitenant.md](docs/05-caso-practico-ecommerce-multitenant.md) |
 
 > Cada documento incluye **diagramas Mermaid** (flujos, secuencias, arquitectura y comparaciones
 > antes/después) pensados para estudiar en clase o revisar en GitHub.
@@ -38,7 +39,7 @@ flowchart TB
     DDD["2. DDD<br/>Modelar el negocio"]
     F12["3. 12-Factor<br/>Cloud-native checklist"]
     PAT["4. Patrones<br/>Saga · CQRS · Outbox · Gateway · BFF"]
-    CASO["5. Caso práctico<br/>E-commerce multi-tenant"]
+    CASO["5. Caso práctico<br/>E-commerce multi-tenant<br/>VT + Structured Concurrency"]
 
     SOLID --> DDD --> F12 --> PAT --> CASO
     CASO --> CODE["codigo/<br/>Demos ejecutables"]
