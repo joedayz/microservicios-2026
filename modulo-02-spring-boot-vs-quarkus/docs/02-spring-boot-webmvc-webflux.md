@@ -9,6 +9,10 @@ Implementamos el microservicio **Catalog** dos veces con Spring Boot 4: modelo *
 |----------|--------|-------|
 | `spring-boot-mvc/catalog-service` | 8081 | `spring-boot-starter-web` + JPA + H2 |
 | `spring-boot-webflux/catalog-service` | 8082 | `spring-boot-starter-webflux` + R2DBC + H2 |
+| `spring-boot-virtual-threads/catalog-service` | 8084 | Web MVC + JPA + **Virtual Threads** |
+
+> El detalle de Virtual Threads está en [06-virtual-threads.md](06-virtual-threads.md).
+> Resumen: misma API que MVC; solo `spring.threads.virtual.enabled=true`.
 
 ## Spring Boot 4 — novedades relevantes
 

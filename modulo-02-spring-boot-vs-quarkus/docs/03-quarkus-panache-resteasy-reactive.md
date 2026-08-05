@@ -8,6 +8,9 @@ simplificada con **Hibernate Panache** y APIs REST con **Quarkus REST** (evoluci
 | Proyecto | Puerto | Stack |
 |----------|--------|-------|
 | `quarkus/catalog-service` | 8083 | `quarkus-rest-jackson` + `quarkus-hibernate-orm-panache` + H2 |
+| `quarkus-virtual-threads/catalog-service` | 8085 | Igual + **`@RunOnVirtualThread`** |
+
+> Ver [06-virtual-threads.md](06-virtual-threads.md) para la versión con Virtual Threads.
 
 ## Extensiones Quarkus usadas
 

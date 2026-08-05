@@ -23,7 +23,7 @@ for arg in "$@"; do
       cat <<'EOF'
 Uso: ./run-benchmarks.sh [--native] [--skip-build]
 
-  sin flags       Mide Spring Boot MVC, WebFlux y Quarkus en modo JVM.
+  sin flags       Mide Spring Boot MVC, WebFlux, Quarkus, Spring VT y Quarkus VT (JVM).
   --native        Igual que arriba + Quarkus Native.
   --skip-build    No ejecuta mvn package.
 
@@ -31,7 +31,7 @@ Quarkus Native en Mac (una vez):
   cd quarkus/catalog-service
   mvn package -Dnative -DskipTests -Dquarkus.native.container-build=false
 
-Libera los puertos 8081-8083 antes de correr el script.
+Libera los puertos 8081-8085 antes de correr el script.
 EOF
       exit 0
       ;;
@@ -195,15 +195,17 @@ measure_native() {
 MVC_JAR="$MODULE_DIR/spring-boot-mvc/catalog-service/target/catalog-service-mvc-1.0.0.jar"
 FLUX_JAR="$MODULE_DIR/spring-boot-webflux/catalog-service/target/catalog-service-webflux-1.0.0.jar"
 Q_JAR="$MODULE_DIR/quarkus/catalog-service/target/quarkus-app/quarkus-run.jar"
+VT_SPRING_JAR="$MODULE_DIR/spring-boot-virtual-threads/catalog-service/target/catalog-service-mvc-vt-1.0.0.jar"
+VT_QUARKUS_JAR="$MODULE_DIR/quarkus-virtual-threads/catalog-service/target/quarkus-app/quarkus-run.jar"
 Q_RUNNER="$MODULE_DIR/quarkus/catalog-service/target/catalog-service-1.0.0-runner"
 
 echo "============================================================"
 echo " Benchmarks Modulo 2 - Catalog Service - JoeDayz.pe"
 echo " Java: $(java -version 2>&1 | head -1)"
 if [[ "$RUN_NATIVE" == true ]]; then
-  echo " Modo: JVM + Quarkus Native"
+  echo " Modo: JVM (5 stacks) + Quarkus Native"
 else
-  echo " Modo: solo JVM  -  agrega --native para incluir Quarkus Native"
+  echo " Modo: solo JVM (5 stacks)  -  agrega --native para incluir Quarkus Native"
 fi
 echo "============================================================"
 
@@ -213,6 +215,8 @@ if [[ "$SKIP_BUILD" == false ]]; then
   (cd "$MODULE_DIR/spring-boot-mvc/catalog-service" && mvn -q package -DskipTests)
   (cd "$MODULE_DIR/spring-boot-webflux/catalog-service" && mvn -q package -DskipTests)
   (cd "$MODULE_DIR/quarkus/catalog-service" && mvn -q package -DskipTests)
+  (cd "$MODULE_DIR/spring-boot-virtual-threads/catalog-service" && mvn -q package -DskipTests)
+  (cd "$MODULE_DIR/quarkus-virtual-threads/catalog-service" && mvn -q package -DskipTests)
   echo "Compilacion OK."
 fi
 
@@ -229,6 +233,8 @@ print_header
 measure_jar "Spring Boot MVC" "$MVC_JAR" "http://localhost:8081/actuator/health" 8081
 measure_jar "Spring Boot WebFlux" "$FLUX_JAR" "http://localhost:8082/actuator/health" 8082
 measure_jar "Quarkus" "$Q_JAR" "http://localhost:8083/q/health" 8083
+measure_jar "Spring Boot + VT" "$VT_SPRING_JAR" "http://localhost:8084/actuator/health" 8084
+measure_jar "Quarkus + VT" "$VT_QUARKUS_JAR" "http://localhost:8085/q/health" 8085
 
 if [[ "$RUN_NATIVE" == true ]]; then
   measure_native "Quarkus" "$Q_RUNNER" "http://localhost:8083/q/health" 8083
@@ -236,6 +242,7 @@ fi
 
 echo ""
 echo "Nota: valores orientativos. Ejecuta 3 veces y promedia para clase."
+echo "Virtual Threads: el startup/RSS sera similar a MVC/Quarkus; mide throughput con hey."
 if [[ "$RUN_NATIVE" == false ]]; then
   echo "Para incluir native: $0 --native --skip-build"
 fi

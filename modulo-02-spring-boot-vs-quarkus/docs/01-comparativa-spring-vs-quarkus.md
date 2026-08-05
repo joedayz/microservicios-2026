@@ -22,7 +22,7 @@ quadrantChart
     x-axis Bajo ecosistema Spring --> Alto ecosistema Spring
     y-axis Baja prioridad startup/RAM --> Alta prioridad startup/RAM
     quadrant-1 Quarkus nativo
-    quadrant-2 Spring Boot (suficiente)
+    quadrant-2 Spring Boot es suficiente
     quadrant-3 Cualquiera con JVM
     quadrant-4 Quarkus JVM
 ```
@@ -70,11 +70,11 @@ Spring AOT, pero Quarkus sigue siendo más maduro en native.
 - Microservicios pequeños y focalizados (un bounded context por servicio).
 - Necesitas **dev mode** ultrarrápido (`quarkus:dev` con live reload).
 
-## Modelo de programación: bloqueante vs reactivo
+## Modelo de programación: bloqueante vs reactivo vs Virtual Threads
 
 ```mermaid
 flowchart LR
-    subgraph BLOQ["Bloqueante (Spring MVC)"]
+    subgraph BLOQ["Bloqueante (Spring MVC :8081)"]
         T1["Thread 1"] --> REQ1["Request A"]
         T2["Thread 2"] --> REQ2["Request B"]
     end
@@ -84,26 +84,34 @@ flowchart LR
         EVT --> R1["Request A (no bloquea thread)"]
         EVT --> R2["Request B (no bloquea thread)"]
     end
+
+    subgraph VT["Virtual Threads (:8084 / :8085)"]
+        C["Carrier (~cores)"]
+        V1["VT Request A"] --> C
+        V2["VT Request B"] --> C
+        VN["VT Request N"] --> C
+    end
 ```
 
-| | Spring Web MVC | Spring WebFlux | Quarkus REST |
-|---|----------------|----------------|--------------|
-| Threads | 1 thread ≈ 1 request (pool) | Pocos threads, muchas conexiones | Event loop (Vert.x) |
-| JDBC bloqueante | ✅ Natural | ⚠️ Bloquea el event loop | ✅ Con worker pool |
-| R2DBC / reactive | N/A | ✅ Natural | ✅ Mutiny / reactive |
-| Curva | Baja | Alta | Media |
+| | Spring Web MVC | Spring MVC + VT | Spring WebFlux | Quarkus + `@RunOnVirtualThread` |
+|---|----------------|-----------------|----------------|----------------------------------|
+| Threads | 1 thread ≈ 1 request (pool) | Miles de VTs sobre carriers | Pocos threads, muchas conexiones | VTs para I/O bloqueante |
+| JDBC bloqueante | ✅ Natural | ✅ Natural + escala mejor | ⚠️ Bloquea el event loop | ✅ Con `@RunOnVirtualThread` |
+| Código | Imperativo | Imperativo (igual) | Reactivo | Imperativo |
+| Curva | Baja | Baja | Alta | Baja–media |
 
-> **Regla práctica:** no uses WebFlux solo "por moda". Úsalo si tienes I/O masivo concurrente
-> (muchas conexiones lentas) o pipelines reactivos de punta a punta. Si tu código es JDBC
-> bloqueante, **Spring MVC o Quarkus con threads** suele ser más simple y igual de válido.
+> **Regla práctica:** no uses WebFlux solo "por moda". Si tu código es JDBC bloqueante,
+> **Spring MVC + Virtual Threads** o **Quarkus + `@RunOnVirtualThread`** suelen ser más
+> simples y igual de válidos. Ver [docs/06-virtual-threads.md](06-virtual-threads.md).
 
 ## En este curso usamos ambos
 
-El microservicio **Catalog** se implementa tres veces con el **mismo contrato REST** y
-multi-tenancy (`X-Tenant-ID`), para que compares apples-to-apples en los benchmarks.
+El microservicio **Catalog** se implementa **cinco veces** con el **mismo contrato REST** y
+multi-tenancy (`X-Tenant-ID`), para que compares apples-to-apples en los benchmarks
+(incluyendo Virtual Threads en :8084 y :8085).
 
 ## Ejercicios
 
 1. ¿Tu empresa actual usaría Spring o Quarkus? Justifica con 3 criterios de la tabla.
-2. ¿Por qué WebFlux + JPA bloqueante es un anti-patrón? ¿Qué alternativa usarías?
-3. Ejecuta los tres servicios y llama `GET /api/v1/products` con y sin header `X-Tenant-ID`.
+2. ¿Por qué WebFlux + JPA bloqueante es un anti-patrón? ¿Qué alternativa con VT usarías?
+3. Ejecuta :8081 y :8084, llama `GET /api/v1/products/_thread` y explica la diferencia.

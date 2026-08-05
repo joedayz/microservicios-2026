@@ -14,7 +14,7 @@ Medimos lo que importa en Kubernetes: **¿cuánto tarda en estar listo?** y **¿
 
 ```bash
 cd modulo-02-spring-boot-vs-quarkus/benchmarks
-./run-benchmarks.sh           # Spring MVC, WebFlux, Quarkus JVM
+./run-benchmarks.sh           # Spring MVC, WebFlux, Quarkus, Spring VT, Quarkus VT
 ./run-benchmarks.sh --native  # + Quarkus native (si ya compilaste)
 ```
 
@@ -38,7 +38,12 @@ flowchart TB
 | Spring Boot MVC | JVM | 2.5 – 4.5 s | 220 – 380 MB |
 | Spring Boot WebFlux | JVM | 2.0 – 4.0 s | 200 – 350 MB |
 | Quarkus Catalog | JVM | 0.8 – 2.0 s | 90 – 160 MB |
+| Spring Boot MVC + VT | JVM | ~igual que MVC | ~igual que MVC |
+| Quarkus + VT | JVM | ~igual que Quarkus | ~igual que Quarkus |
 | Quarkus Catalog | **Native** | **0.03 – 0.15 s** | **35 – 80 MB** |
+
+> Virtual Threads **no reducen startup ni RSS en reposo**: mejoran **throughput bajo carga
+> concurrente** (I/O-bound). Mídelos con `hey`/`ab`, no solo con el script de arranque.
 
 ```mermaid
 xychart-beta

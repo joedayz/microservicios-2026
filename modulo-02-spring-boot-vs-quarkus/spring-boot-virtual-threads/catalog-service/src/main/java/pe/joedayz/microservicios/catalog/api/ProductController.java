@@ -36,13 +36,16 @@ public class ProductController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /** Endpoint didactico: en MVC clasico {@code virtual=false}. Compara con :8084. */
+    /**
+     * Endpoint didactico: confirma que la peticion corre en un Virtual Thread.
+     * Compara con el MVC clasico (:8081) donde {@code virtual=false}.
+     */
     @GetMapping("/_thread")
     public Map<String, Object> threadInfo() {
         Thread t = Thread.currentThread();
         return Map.of(
                 "name", t.getName(),
                 "virtual", t.isVirtual(),
-                "framework", "Spring Boot Web MVC (platform threads)");
+                "framework", "Spring Boot Web MVC + Virtual Threads");
     }
 }
