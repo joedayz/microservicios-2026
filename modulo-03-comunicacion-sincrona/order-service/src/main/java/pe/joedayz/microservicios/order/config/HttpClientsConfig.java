@@ -6,18 +6,25 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.reactive.function.client.WebClient;
 
+/**
+ * Clientes HTTP de bajo nivel (infraestructura).
+ *
+ * <p>Los nombres de bean NO deben coincidir con las clases {@code @Component}
+ * {@code CatalogRestClient} / {@code CatalogWebClient} (Spring las registra
+ * como beans {@code catalogRestClient} / {@code catalogWebClient}).
+ */
 @Configuration
 public class HttpClientsConfig {
 
     @Bean
-    RestClient catalogRestClient(@Value("${clients.catalog.url}") String catalogUrl) {
+    RestClient catalogApiRestClient(@Value("${clients.catalog.url}") String catalogUrl) {
         return RestClient.builder()
                 .baseUrl(catalogUrl)
                 .build();
     }
 
     @Bean
-    WebClient catalogWebClient(@Value("${clients.catalog.url}") String catalogUrl) {
+    WebClient catalogApiWebClient(@Value("${clients.catalog.url}") String catalogUrl) {
         return WebClient.builder()
                 .baseUrl(catalogUrl)
                 .build();

@@ -12,8 +12,8 @@ public class CatalogRestClient {
 
     private final RestClient restClient;
 
-    public CatalogRestClient(RestClient catalogRestClient) {
-        this.restClient = catalogRestClient;
+    public CatalogRestClient(RestClient catalogApiRestClient) {
+        this.restClient = catalogApiRestClient;
     }
 
     public Optional<ProductDto> findBySku(String tenantId, String sku) {

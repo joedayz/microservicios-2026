@@ -16,8 +16,8 @@ public class CatalogWebClient {
 
     private final WebClient webClient;
 
-    public CatalogWebClient(WebClient catalogWebClient) {
-        this.webClient = catalogWebClient;
+    public CatalogWebClient(WebClient catalogApiWebClient) {
+        this.webClient = catalogApiWebClient;
     }
 
     public Optional<ProductDto> findBySku(String tenantId, String sku) {
