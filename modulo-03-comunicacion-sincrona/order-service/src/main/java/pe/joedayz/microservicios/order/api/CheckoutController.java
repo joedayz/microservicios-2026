@@ -47,7 +47,7 @@ public class CheckoutController {
 
         Optional<ProductDto> productOpt = switch (style) {
             case "webclient" -> webClient.findBySku(tenant, request.sku());
-            case "feign" -> findWithFeign(tenant, request.sku());
+            case "feign" -> findWithFeign(request.sku());
             default -> restClient.findBySku(tenant, request.sku());
         };
 
@@ -73,9 +73,9 @@ public class CheckoutController {
         return ResponseEntity.ok(body);
     }
 
-    private Optional<ProductDto> findWithFeign(String tenant, String sku) {
+    private Optional<ProductDto> findWithFeign(String sku) {
         try {
-            return Optional.ofNullable(feignClient.getBySku(tenant, sku));
+            return Optional.ofNullable(feignClient.getBySku(sku));
         } catch (FeignException.NotFound ex) {
             return Optional.empty();
         }

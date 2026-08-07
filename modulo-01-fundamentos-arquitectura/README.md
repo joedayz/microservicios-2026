@@ -45,6 +45,7 @@ flowchart TB
     CASO --> CODE["codigo/<br/>Demos ejecutables"]
     PAT --> CODE
     DDD --> CODE
+    CODE --> NET["codigo-dotnet/<br/>Mismas demos en .NET 10"]
 ```
 
 ## Ejemplos de código
@@ -80,6 +81,19 @@ mvn -q compile exec:java
 ```
 
 Verás en consola cada patrón demostrado paso a paso.
+
+### Versión .NET 10 (opcional)
+
+Las mismas demos están portadas a **.NET 10 / C# 14** en [`codigo-dotnet/`](codigo-dotnet/),
+un proyecto independiente que no afecta al código Java. Incluye una tabla de
+equivalencias Java ↔ .NET en su [README](codigo-dotnet/README.md).
+
+Requisitos: **.NET SDK 10**.
+
+```bash
+cd codigo-dotnet
+dotnet run --project src/Modulo01.Fundamentos
+```
 
 ## Cómo estudiar este módulo
 

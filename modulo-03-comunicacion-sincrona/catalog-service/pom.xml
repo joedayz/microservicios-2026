@@ -58,6 +58,32 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+
+            <plugin>
+                <groupId>org.openapitools</groupId>
+                <artifactId>openapi-generator-maven-plugin</artifactId>
+                <version>7.24.0</version> <!-- o superior -->
+                <executions>
+                    <execution>
+                        <goals><goal>generate</goal></goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/../contracts/catalog-api-v1.yaml</inputSpec>
+                            <generatorName>spring</generatorName>
+                            <apiPackage>pe.joedayz.microservicios.catalog.api</apiPackage>
+                            <modelPackage>pe.joedayz.microservicios.catalog.api.model</modelPackage>
+                            <configOptions>
+                                <interfaceOnly>true</interfaceOnly>
+                                <useSpringBoot4>true</useSpringBoot4>
+                                <useJackson3>true</useJackson3>
+                                <openApiNullable>false</openApiNullable>
+                                <skipDefaultInterface>true</skipDefaultInterface>
+                                <documentationProvider>springdoc</documentationProvider>
+                                <annotationLibrary>swagger2</annotationLibrary>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>

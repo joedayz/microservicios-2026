@@ -8,6 +8,7 @@
         <outputRelativeToContentRoot value="true" />
         <module name="catalog-service-webflux" />
         <module name="modulo-01-fundamentos" />
+        <module name="order-service" />
         <module name="catalog-service-mvc" />
         <module name="catalog-service" />
       </profile>
@@ -18,6 +19,7 @@
       <module name="catalog-service" options="-parameters" />
       <module name="catalog-service-mvc" options="-parameters" />
       <module name="catalog-service-webflux" options="-parameters" />
+      <module name="order-service" options="-parameters" />
     </option>
   </component>
 </project>

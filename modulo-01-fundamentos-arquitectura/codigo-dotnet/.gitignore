@@ -1,0 +1,4 @@
+# Build outputs .NET
+bin/
+obj/
+*.user
