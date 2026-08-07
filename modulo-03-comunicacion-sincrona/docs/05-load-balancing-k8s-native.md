@@ -52,8 +52,23 @@ spring.grpc.client.channels.inventory.address: static://inventory-service:9090
 - Montar Eureka “porque el tutorial de 2018 lo hacía” en un cluster K8s puro.
 - Asumir sticky sessions sin documentarlo (el Service no garantiza afinidad por defecto).
 
+## Lab con Kind + Podman
+
+```bash
+export KIND_EXPERIMENTAL_PROVIDER=podman   # los scripts ya lo exportan
+./scripts/01-kind-create.sh
+./scripts/02-deploy.sh
+./scripts/03-smoke.sh
+./scripts/04-destroy.sh
+```
+
+Imágenes: `podman build` → `podman save` → `kind load image-archive` (no `kind load docker-image`).
+
+`k8s/kind/nodeports.yaml` expone los servicios en localhost (`8081`, `8084`, `8085`, `9090`)
+vía NodePort + `extraPortMappings`. Entre Pods el tráfico sigue por DNS (`catalog-service:8081`).
+
 ## Ejercicio
 
-1. `kubectl apply -f k8s/`
+1. Despliega con `./scripts/02-deploy.sh` (o `kubectl apply -f k8s/`).
 2. Escala catalog a 3 réplicas y observa que Order sigue funcionando.
 3. Borra un Pod de catalog y verifica recuperación vía el Service.

@@ -1,0 +1,4 @@
+target/*
+!target/catalog-service-*.jar
+.git
+*.md

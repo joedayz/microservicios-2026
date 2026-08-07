@@ -1,0 +1,4 @@
+target/*
+!target/order-service-*.jar
+.git
+*.md

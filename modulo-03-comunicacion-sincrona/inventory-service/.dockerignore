@@ -1,0 +1,4 @@
+target/*
+!target/inventory-service-*.jar
+.git
+*.md

@@ -1,0 +1,19 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: microservicios-m03
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      # Host → NodePort (ver k8s/kind-nodeports.yaml)
+      - containerPort: 30081
+        hostPort: 8081
+        protocol: TCP
+      - containerPort: 30084
+        hostPort: 8084
+        protocol: TCP
+      - containerPort: 30085
+        hostPort: 8085
+        protocol: TCP
+      - containerPort: 30090
+        hostPort: 9090
+        protocol: TCP

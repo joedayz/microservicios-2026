@@ -91,10 +91,31 @@ grpcurl -plaintext -d '{"tenant_id":"tienda-deportes","sku":"ZAP-RUN-42","quanti
   localhost:9090 inventory.v1.InventoryService/CheckStock
 ```
 
-### Kubernetes (LB nativo)
+### Kubernetes (LB nativo) + Kind
 
-Manifiestos de ejemplo en [`k8s/`](k8s/): Deployment + Service ClusterIP. El balanceo lo hace
-el cluster (no Ribbon/Eureka). Detalle en el doc 5.
+Manifiestos en [`k8s/`](k8s/): Deployment + Service. El balanceo lo hace el cluster
+(no Ribbon/Eureka). Detalle en el doc 5.
+
+Scripts listos para lab local con [Kind](https://kind.sigs.k8s.io/) + **Podman**:
+
+```bash
+cd modulo-03-comunicacion-sincrona
+
+# (recomendado) export KIND_EXPERIMENTAL_PROVIDER=podman
+./scripts/01-kind-create.sh   # crea cluster + port-mappings (8081/8084/8085/9090)
+./scripts/02-deploy.sh        # mvn package → podman build → kind load image-archive → apply
+./scripts/03-smoke.sh         # curls (catalog + checkout rest/web/feign) + grpcurl opcional
+./scripts/04-destroy.sh       # borra el cluster Kind
+```
+
+Requisitos: **Podman 5+**, **kind** (con fix Podman 6 si usas Podman 6), **kubectl**, **Maven**, **curl**
+(opcional: `grpcurl`, `jq`).
+
+> **Podman 6 + Kind ≤ 0.32**: `kind get/create clusters` falla (`cannot index slice/array`).
+> Arreglo: `brew install --HEAD kind` (incluye el fix [#4203](https://github.com/kubernetes-sigs/kind/pull/4203)).
+>
+> Con Podman usa `podman save` + `kind load image-archive` (los scripts ya lo hacen).
+> Arranca la máquina: `podman machine start`.
 
 ---
 
