@@ -72,6 +72,212 @@ flowchart LR
     INV -.->|Avro + Schemas| SCHEMA
 ```
 
+## Guía didáctica para explicar el módulo 4 (paso a paso)
+
+Esta demo está pensada para que en clase puedas mostrar, en vivo, cómo un evento viaja por Kafka y cómo cada microservicio reacciona a ese evento sin depender de llamadas HTTP síncronas.
+
+### 1) Objetivo de la demostración
+
+En 10 minutos puedes explicar y ejecutar esta secuencia:
+
+1. `Order Service` recibe una orden.
+2. Crea el `OrderCreated` event.
+3. Publica un comando `ReserveStockCommand` al topic de Kafka.
+4. `Catalog Service` reserva stock y publica `StockReserved` o `StockReservationFailed`.
+5. `Inventory Service` escucha `StockReserved` y actualiza el stock físico.
+6. `Order Service` finaliza la orden como `CONFIRMED` o `FAILED`.
+
+La clave didáctica es mostrar que la respuesta ya no depende del tiempo real del otro servicio: el sistema es asíncrono, tolera latencia y desacopla componentes.
+
+### 2) Requisitos mínimos
+
+- Java 21+
+- Maven 3.9+
+- Podman 5+ o Docker Desktop
+- `kind` opcional si quieres correr la misma idea dentro de un cluster local
+- `curl` y `jq` (opcional)
+
+> Si tienes Podman, esta guía funciona con un solo broker Kafka local usando `podman compose` sobre el archivo de [docker-compose/docker-compose.yml](docker-compose/docker-compose.yml).
+
+### 3) Levantar Kafka con un solo broker (reproducible localmente)
+
+Desde la raíz del módulo:
+
+```bash
+cd modulo-04-comunicacion-asincrona/docker-compose
+podman compose up -d
+```
+
+Verifica que los contenedores subieron:
+
+```bash
+podman ps
+podman logs kafka --tail 50
+```
+
+Qué debes ver:
+- `kafka` corriendo en `localhost:9092`
+- `schema-registry` en `localhost:8085`
+- `kafka-ui` en `http://localhost:8090`
+
+También puedes revisar que Schema Registry responde:
+
+```bash
+curl http://localhost:8085/subjects
+```
+
+> En una clase, esto es ideal para mostrar: “Kafka no es una base de datos, es un sistema de mensajería distribuida”.
+
+### 4) Arrancar los tres microservicios
+
+Abre 3 terminales diferentes y ejecuta cada servicio en su propia ventana:
+
+```bash
+cd modulo-04-comunicacion-asincrona/order-service-spring
+mvn spring-boot:run
+```
+
+```bash
+cd modulo-04-comunicacion-asincrona/catalog-service-spring
+mvn spring-boot:run
+```
+
+```bash
+cd modulo-04-comunicacion-asincrona/inventory-service-spring
+mvn spring-boot:run
+```
+
+Cuando los tres estén arriba, revisa health endpoints:
+
+```bash
+curl http://localhost:8086/actuator/health
+curl http://localhost:8081/actuator/health
+curl http://localhost:8084/actuator/health
+```
+
+### 5) Enviar una orden de prueba
+
+La API de Order Service exige el header `X-Tenant-ID` para simular multitenancy. El request real usa `customerId`, `sku` y `quantity`:
+
+```bash
+curl -s -X POST http://localhost:8086/api/v1/orders \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-ID: demo-tenant' \
+  -d '{
+    "customerId": "customer-001",
+    "sku": "SKU-001",
+    "quantity": 2
+  }'
+```
+
+Respuesta esperada: HTTP 202 Accepted, porque la orden se acepta y el flujo continúa en segundo plano.
+
+### 6) Qué exactamente está pasando detrás de escena
+
+Ahora explica el flujo como si fuera la narración de la clase:
+
+1. `OrderService.createOrder()` crea la orden localmente.
+2. Guarda la orden en la base de datos del servicio.
+3. Inserta un evento en el `event store` (Event Sourcing).
+4. Publica el comando `ReserveStockCommand` a Kafka.
+5. `Catalog Service` escucha `reserve-stock-command`.
+6. Valida stock.
+7. Si hay stock, guarda la reserva y publica `stock-reserved`.
+8. `Inventory Service` escucha `stock-reserved` y descuenta el stock físico.
+9. `Order Service` escucha `stock-reserved` y marca la orden como confirmada.
+10. El mismo flujo genera `OrderConfirmedEvent` y deja el historial completo en el event store.
+
+En términos de diseño, esto es una saga orquestada simplificada: el ordenador es `Order Service` y los participantes son `Catalog` e `Inventory`.
+
+### 7) Ver el historial y depurar la demo
+
+Puedes consultar el estado y el historial de eventos:
+
+```bash
+curl -s http://localhost:8086/api/v1/orders/<ORDER_ID> \
+  -H 'X-Tenant-ID: demo-tenant'
+
+curl -s http://localhost:8086/api/v1/orders/<ORDER_ID>/events \
+  -H 'X-Tenant-ID: demo-tenant'
+```
+
+Esto te permite mostrar el “event sourcing” en vivo: cada cambio está registrado como evento, y no solo el último estado.
+
+### 8) Ver los eventos en Kafka UI
+
+Abre:
+
+- `http://localhost:8090`
+
+Y revisa los topics:
+- `reserve-stock-command`
+- `stock-reserved`
+- `stock-reservation-failed`
+- `inventory-updated`
+
+Esto es perfecto para que expliquen:
+- topic
+- partition
+- consumer group
+- offsets
+- rebalancing
+- at-least-once delivery
+
+### 9) Probar el caso de error
+
+Para demostrar la parte de la saga con fallo, crea un SKU inexistente o un pedido que supere el stock disponible.
+
+```bash
+curl -s -X POST http://localhost:8086/api/v1/orders \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-ID: demo-tenant' \
+  -d '{
+    "customerId": "customer-002",
+    "sku": "SKU-404",
+    "quantity": 999
+  }'
+```
+
+Entonces verás que:
+- `Catalog Service` publica `stock-reservation-failed`
+- `Order Service` marca la orden como `FAILED`
+- `Inventory Service` no decrementa stock porque la reserva nunca fue validada
+
+### 10) Cómo lo explicarías en clase
+
+Puedes contar la historia en este orden:
+
+- “Antes: una llamada HTTP síncrona de Order → Catalog → Inventory”
+- “Ahora: Order publica un evento y cada servicio reacciona de forma independiente”
+- “Esto protege latencia, desacopla servicios y escala mejor en producción”
+- “El costo es la complejidad de manejar consistencia eventual, idempotencia y reintentos”
+- “Por eso usamos Outbox, event stores, consumer groups y retries”
+
+### 11) Si quieres correr esto en Kind
+
+Si en vez de `podman compose` quieres desplegarlo sobre `kind`, la idea es la misma:
+
+```bash
+kind create cluster --name microservices-demo
+kubectl create namespace event-demo
+kubectl apply -f k8s/
+```
+
+Y luego exponer los servicios con `kubectl port-forward` o un `NodePort/LoadBalancer` de prueba.
+
+La lógica no cambia: la clave es conservar el mismo flujo de eventos y el mismo patrón de consumer groups.
+
+### 12) Resumen de la demo
+
+Si alguien te pregunta “¿qué está aprendiendo con esta demo?”, la respuesta corta es:
+
+- Kafka es la diferencia entre un sistema acoplado y un sistema reactivo.
+- El broker no reemplaza la base de datos: la base de datos sigue siendo la fuente de verdad.
+- El evento es la forma de comunicar cambios de dominio, no de transferir llamadas sincrónicas.
+- Un microservicio bien diseñado no necesita esperar a que todos respondan al instante.
+
+---
+
 ## Inicio rápido
 
 ### Prerrequisitos
