@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "EventMetadata",
+  "namespace": "pe.joedayz.microservicios.events.common",
+  "doc": "Metadata compartida por todos los eventos de dominio. Módulo 4 JoeDayz.",
+  "fields": [
+    {"name": "eventId", "type": "string", "doc": "UUID único del evento"},
+    {"name": "tenantId", "type": "string", "doc": "Tenant propietario del evento (X-Tenant-ID)"},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "traceId", "type": ["null", "string"], "default": null, "doc": "Correlation ID para tracing distribuido"}
+  ]
+}

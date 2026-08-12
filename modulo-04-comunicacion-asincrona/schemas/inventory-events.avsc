@@ -1,0 +1,41 @@
+[
+  {
+    "type": "record",
+    "name": "StockReservedEvent",
+    "namespace": "pe.joedayz.microservicios.catalog.events",
+    "doc": "Publicado por Catalog Service (outbox) tras reservar stock exitosamente. Actúa como reply al orquestador y como evento de broadcast para Inventory Service.",
+    "fields": [
+      {"name": "orderId", "type": "string"},
+      {"name": "tenantId", "type": "string"},
+      {"name": "sku", "type": "string"},
+      {"name": "quantity", "type": "int"},
+      {"name": "reservedAt", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+    ]
+  },
+  {
+    "type": "record",
+    "name": "StockReservationFailedEvent",
+    "namespace": "pe.joedayz.microservicios.catalog.events",
+    "doc": "Publicado por Catalog Service (outbox) cuando no hay stock suficiente.",
+    "fields": [
+      {"name": "orderId", "type": "string"},
+      {"name": "tenantId", "type": "string"},
+      {"name": "sku", "type": "string"},
+      {"name": "requestedQuantity", "type": "int"},
+      {"name": "reason", "type": "string"}
+    ]
+  },
+  {
+    "type": "record",
+    "name": "InventoryUpdatedEvent",
+    "namespace": "pe.joedayz.microservicios.inventory.events",
+    "doc": "Publicado por Inventory Service tras decrementar el inventario físico.",
+    "fields": [
+      {"name": "orderId", "type": "string"},
+      {"name": "tenantId", "type": "string"},
+      {"name": "sku", "type": "string"},
+      {"name": "remainingQuantity", "type": "int"},
+      {"name": "updatedAt", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+    ]
+  }
+]
