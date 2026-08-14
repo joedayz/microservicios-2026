@@ -9,6 +9,8 @@ metadata:
     app: kafka
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: kafka
@@ -17,6 +19,9 @@ spec:
       labels:
         app: kafka
     spec:
+      # Evita que K8s inyecte KAFKA_PORT (del Service "kafka") en el pod,
+      # lo que rompe el script de configuración de Confluent cp-kafka en KRaft.
+      enableServiceLinks: false
       containers:
         - name: kafka
           image: confluentinc/cp-kafka:7.5.3
@@ -61,6 +66,7 @@ spec:
                 - localhost:9092
             initialDelaySeconds: 20
             periodSeconds: 10
+            timeoutSeconds: 10
             failureThreshold: 10
           resources:
             requests:
@@ -75,12 +81,19 @@ kind: Service
 metadata:
   name: kafka
 spec:
+  # Incluye el pod en endpoints aunque no sea Ready todavía.
+  # Necesario para KRaft: el broker necesita alcanzar al controller
+  # (mismo pod, mismo Service) antes de pasar el readiness probe.
+  publishNotReadyAddresses: true
   selector:
     app: kafka
   ports:
     - name: internal
       port: 29092
       targetPort: 29092
+    - name: controller
+      port: 29093
+      targetPort: 29093
     - name: external
       port: 9092
       targetPort: 9092
@@ -103,6 +116,9 @@ spec:
       labels:
         app: schema-registry
     spec:
+      # Evita que K8s inyecte SCHEMA_REGISTRY_PORT en el pod,
+      # lo que rompe el script de configuración de Confluent.
+      enableServiceLinks: false
       containers:
         - name: schema-registry
           image: confluentinc/cp-schema-registry:7.5.3
