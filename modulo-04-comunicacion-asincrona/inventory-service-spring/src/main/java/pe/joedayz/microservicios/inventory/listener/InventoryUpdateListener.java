@@ -9,6 +9,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import tools.jackson.databind.ObjectMapper;
 import pe.joedayz.microservicios.inventory.domain.InventoryItem;
 import pe.joedayz.microservicios.inventory.events.InventoryUpdatedEvent;
 import pe.joedayz.microservicios.inventory.events.StockReservedEvent;
@@ -26,16 +27,20 @@ public class InventoryUpdateListener {
 
     private final InventoryItemRepository inventoryItemRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
     public InventoryUpdateListener(InventoryItemRepository inventoryItemRepository,
-                                    KafkaTemplate<String, Object> kafkaTemplate) {
+                                    KafkaTemplate<String, Object> kafkaTemplate,
+                                    ObjectMapper objectMapper) {
         this.inventoryItemRepository = inventoryItemRepository;
         this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
     }
 
     @KafkaListener(topics = "stock-reserved", groupId = "inventory-service")
     @Transactional
-    public void handle(StockReservedEvent event) {
+    public void handle(String payload) throws Exception {
+        StockReservedEvent event = objectMapper.readValue(payload, StockReservedEvent.class);
         InventoryItem item = inventoryItemRepository.findBySkuAndTenantId(event.sku(), event.tenantId())
                 .orElseThrow(() -> new NoSuchElementException("SKU no encontrado en inventario: " + event.sku()));
 

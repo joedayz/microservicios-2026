@@ -10,6 +10,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import tools.jackson.databind.ObjectMapper;
 import pe.joedayz.microservicios.order.api.dto.CreateOrderRequest;
 import pe.joedayz.microservicios.order.domain.Order;
 import pe.joedayz.microservicios.order.events.OrderConfirmedEvent;
@@ -47,13 +48,16 @@ public class OrderSagaOrchestrator {
     private final OrderRepository orderRepository;
     private final EventStoreService eventStore;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
     public OrderSagaOrchestrator(OrderRepository orderRepository,
                                   EventStoreService eventStore,
-                                  KafkaTemplate<String, Object> kafkaTemplate) {
+                                  KafkaTemplate<String, Object> kafkaTemplate,
+                                  ObjectMapper objectMapper) {
         this.orderRepository = orderRepository;
         this.eventStore = eventStore;
         this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -75,7 +79,8 @@ public class OrderSagaOrchestrator {
 
     @KafkaListener(topics = "stock-reserved", groupId = "order-service")
     @Transactional
-    public void handleStockReserved(StockReservedEvent event) {
+    public void handleStockReserved(String payload) throws Exception {
+        StockReservedEvent event = objectMapper.readValue(payload, StockReservedEvent.class);
         Order order = orderRepository.findById(event.orderId())
                 .orElseThrow(() -> new NoSuchElementException("Order no encontrada: " + event.orderId()));
 
@@ -94,7 +99,8 @@ public class OrderSagaOrchestrator {
 
     @KafkaListener(topics = "stock-reservation-failed", groupId = "order-service")
     @Transactional
-    public void handleReservationFailed(StockReservationFailedEvent event) {
+    public void handleReservationFailed(String payload) throws Exception {
+        StockReservationFailedEvent event = objectMapper.readValue(payload, StockReservationFailedEvent.class);
         Order order = orderRepository.findById(event.orderId())
                 .orElseThrow(() -> new NoSuchElementException("Order no encontrada: " + event.orderId()));
 

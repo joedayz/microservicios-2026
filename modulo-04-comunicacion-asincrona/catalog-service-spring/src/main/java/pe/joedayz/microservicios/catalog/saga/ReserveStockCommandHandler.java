@@ -6,6 +6,7 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import tools.jackson.databind.ObjectMapper;
 import pe.joedayz.microservicios.catalog.domain.ProductStock;
 import pe.joedayz.microservicios.catalog.events.ReserveStockCommand;
 import pe.joedayz.microservicios.catalog.events.StockReservationFailedEvent;
@@ -26,16 +27,20 @@ public class ReserveStockCommandHandler {
 
     private final ProductStockRepository productStockRepository;
     private final OutboxService outboxService;
+    private final ObjectMapper objectMapper;
 
     public ReserveStockCommandHandler(ProductStockRepository productStockRepository,
-                                       OutboxService outboxService) {
+                                       OutboxService outboxService,
+                                       ObjectMapper objectMapper) {
         this.productStockRepository = productStockRepository;
         this.outboxService = outboxService;
+        this.objectMapper = objectMapper;
     }
 
     @KafkaListener(topics = "reserve-stock-command", groupId = "catalog-service")
     @Transactional
-    public void handle(ReserveStockCommand command) {
+    public void handle(String payload) throws Exception {
+        ReserveStockCommand command = objectMapper.readValue(payload, ReserveStockCommand.class);
         var stock = productStockRepository.findBySkuAndTenantId(command.sku(), command.tenantId());
 
         if (stock.isEmpty() || !stock.get().hasEnoughStock(command.quantity())) {
