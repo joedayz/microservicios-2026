@@ -5,9 +5,9 @@
 
 En el Módulo 3 los microservicios se comunicaban de forma **síncrona** (REST, gRPC).
 Aquí escalamos a **comunicación asíncrona** con **Apache Kafka** en profundidad:
-topics, partitions, consumer groups, compaction. Implementamos patrones críticos:
-**Event Sourcing**, **Saga** (coreografada y orquestada), **Transactional Outbox**.
-Usamos **Spring Kafka** y **Quarkus Messaging**, y escalamos con **Schema Registry + Avro**.
+topics, partitions, consumer groups, compaction. Cubrimos patrones críticos:
+**Event Sourcing**, **Saga** (coreografada y orquestada), **Transactional Outbox**,
+**Eventual Consistency**, **Schema Registry + Avro** y la operación del stack.
 
 ## Objetivos de aprendizaje
 
@@ -18,9 +18,10 @@ Al terminar este módulo serás capaz de:
 3. **Orquestar transacciones distribuidas** con Saga patterns (coreografada y orquestada).
 4. **Garantizar consistencia eventual** con Transactional Outbox y CDC (Change Data Capture).
 5. **Serializar con Avro + Schema Registry**: evolución de esquemas sin breaking changes.
-6. **Producir y consumir eventos** con **Spring Kafka** (Gradle, templates, listeners).
-7. **Producir y consumir eventos** con **Quarkus Messaging** (MicroProfile Reactive).
-8. **Desplegar Kafka en Kubernetes** (StatefulSet, ConfigMap, Services).
+6. **Entender eventual consistency**: coherencia temporal, reconciliación y monitoreo.
+7. **Producir y consumir eventos** con **Spring Kafka** (Gradle, templates, listeners).
+8. **Producir y consumir eventos** con **Quarkus Messaging** (MicroProfile Reactive).
+9. **Operar Kafka en local y en Kubernetes**: healthchecks, despliegue y observabilidad.
 
 ## Contenido teórico
 
@@ -31,9 +32,10 @@ Al terminar este módulo serás capaz de:
 | 3 | Saga Choreography y Orchestration | [docs/03-saga-patterns.md](docs/03-saga-patterns.md) |
 | 4 | Transactional Outbox y CDC (Change Data Capture) | [docs/04-transactional-outbox.md](docs/04-transactional-outbox.md) |
 | 5 | Schema Registry y Avro: evolución de esquemas | [docs/05-schema-registry-avro.md](docs/05-schema-registry-avro.md) |
-| 6 | Spring Kafka: producers, consumers, templates | [docs/06-spring-kafka.md](docs/06-spring-kafka.md) |
-| 7 | Quarkus Messaging: MicroProfile Reactive, SmallRye | [docs/07-quarkus-messaging.md](docs/07-quarkus-messaging.md) |
-| 8 | Operacionalización: Docker, K8s, monitoreo | [docs/08-operacionalizacion.md](docs/08-operacionalizacion.md) |
+| 6 | Eventual Consistency: coherencia temporal y reconciliación | [docs/06-eventual-consistency.md](docs/06-eventual-consistency.md) |
+| 7 | Spring Kafka: producers, consumers, templates | [docs/06-spring-kafka.md](docs/06-spring-kafka.md) |
+| 8 | Quarkus Messaging: MicroProfile Reactive, SmallRye | [docs/07-quarkus-messaging.md](docs/07-quarkus-messaging.md) |
+| 9 | Operacionalización: Docker, K8s, monitoreo | [docs/09-operacionalizacion.md](docs/09-operacionalizacion.md) |
 
 ## Microservicios de código
 
@@ -70,6 +72,104 @@ flowchart LR
     CAT -.->|Avro + Schemas| SCHEMA
     ORD -.->|Avro + Schemas| SCHEMA
     INV -.->|Avro + Schemas| SCHEMA
+```
+
+### Mapa de patrones en la solución
+
+```mermaid
+flowchart TB
+    ES["Event Sourcing<br/>Order Service<br/>Historial completo + replay"]
+    SAGA["Saga Orchestrated<br/>Order Service<br/>Coordina reservas y confirmación"]
+    OBOX["Transactional Outbox<br/>Catalog Service<br/>Evita dual write"]
+    EC["Eventual Consistency<br/>Todos los servicios<br/>Acepta latencia + reconciliación"]
+    AVRO["Schema Registry + Avro<br/>Todos los producers/consumers<br/>Evolución sin breaking changes"]
+    SK["Spring Kafka<br/>Servicios Spring<br/>KafkaTemplate + @KafkaListener"]
+    QK["Quarkus Messaging<br/>Servicios Quarkus<br/>Emitter + @Incoming/@Outgoing"]
+    OPS["Operacionalización<br/>docker-compose + k8s<br/>Healthchecks + despliegue"]
+
+    ES --> SAGA
+    SAGA --> OBOX
+    OBOX --> EC
+    EC --> AVRO
+    AVRO --> SK
+    AVRO --> QK
+    SK --> OPS
+    QK --> OPS
+```
+
+| Patrón | Dónde se aplica | Código de referencia | Cómo aporta |
+|--------|------------------|----------------------|-------------|
+| Event Sourcing | `order-service-spring`, `order-service-quarkus` | `OrderService.createOrder()`, `Order.fromHistory()` | Guarda historial completo y permite replay/auditoría. |
+| Saga Orchestrated | `order-service-spring`, `order-service-quarkus` | `handleStockReserved()`, `handlePaymentFailed()` | Coordina pasos distribuidos y compensaciones. |
+| Transactional Outbox | `catalog-service-spring`, `catalog-service-quarkus` | `OutboxRepository`, `OutboxPoller` | Elimina dual write entre BD y Kafka. |
+| Eventual Consistency | todo el flujo | `ConsistencyChecker.checkConsistency()`, `ConsistencyMetrics` | Acepta estados temporales y mide convergencia. |
+| Schema Registry + Avro | producers/consumers del módulo | `schemas/*.avsc`, `KafkaAvroSerializer` | Versiona contratos sin romper consumidores. |
+| Spring Kafka | servicios Spring | `KafkaTemplate`, `@KafkaListener` | Implementa productores/consumidores imperativos. |
+| Quarkus Messaging | servicios Quarkus | `Emitter<T>`, `@Incoming`, `@Outgoing` | Implementa mensajería reactiva y simple. |
+| Operacionalización | `docker-compose/`, `k8s/` | `healthcheck.sh`, `docker compose`, `kubectl apply` | Hace reproducible el stack y valida su salud. |
+
+### Dónde se ve cada patrón
+
+**Event Sourcing**
+
+```java
+Order order = Order.createOrder(orderId, request.getCustomerId(), request.getItems());
+eventStore.saveEvents(orderId, order.getUncommittedEvents());
+```
+
+**Transactional Outbox**
+
+```java
+@Transactional
+public String createOrder(CreateOrderRequest request) {
+    Order order = new Order(orderId, request.getCustomerId());
+    orderRepository.save(order);
+    for (OutboxEvent event : order.getOutboxEvents()) {
+        outboxRepository.save(event);
+    }
+    return orderId;
+}
+```
+
+**Saga Orchestrated**
+
+```java
+@KafkaListener(topics = "payment-failed-reply", groupId = "order-group")
+public void handlePaymentFailed(PaymentFailedReply reply) {
+    kafkaTemplate.send("release-stock-command", new ReleaseStockCommand(...));
+}
+```
+
+**Eventual Consistency**
+
+```java
+@Scheduled(fixedRate = 60000)
+public void checkConsistency() {
+    for (Order order : orderRepo.findAll()) {
+        validateOrderConsistency(order);
+    }
+}
+```
+
+**Schema Registry + Avro**
+
+```java
+configProps.put("schema.registry.url", "http://schema-registry:8081");
+kafkaTemplate.send("order-events", event.getOrderId(), event);
+```
+
+**Spring Kafka**
+
+```java
+@KafkaListener(topics = "order-events", groupId = "order-processing")
+public void handleOrderCreated(OrderCreatedEvent event) { ... }
+```
+
+**Quarkus Messaging**
+
+```java
+@Incoming("orders-in")
+public void consume(OrderCreatedEvent event) { ... }
 ```
 
 ## Guía didáctica para explicar el módulo 4 (paso a paso)
@@ -371,11 +471,12 @@ modulo-04-comunicacion-asincrona/
 │   ├── 03-saga-patterns.md
 │   ├── 04-transactional-outbox.md
 │   ├── 05-schema-registry-avro.md
+│   ├── 06-eventual-consistency.md
 │   ├── 06-spring-kafka.md
 │   ├── 07-quarkus-messaging.md
-│   └── 08-operacionalizacion.md
+│   └── 09-operacionalizacion.md
 ├── docker-compose/
-│   ├── docker-compose.yml (Kafka + ZK + Schema Registry)
+│   ├── docker-compose.yml (Kafka + Schema Registry + Kafka UI)
 │   └── healthcheck.sh
 ├── order-service-spring/
 │   ├── pom.xml
@@ -391,19 +492,6 @@ modulo-04-comunicacion-asincrona/
 │   └── src/test/
 ├── catalog-service-quarkus/
 ├── inventory-service-quarkus/
-├── k8s/
-│   ├── kafka-zookeeper.yaml
-│   ├── kafka-broker.yaml
-│   ├── kafka-service.yaml
-│   ├── schema-registry.yaml
-│   ├── order-service-deployment.yaml
-│   ├── catalog-service-deployment.yaml
-│   └── inventory-service-deployment.yaml
-├── scripts/
-│   ├── 01-setup-kafka.sh
-│   ├── 02-deploy-k8s.sh
-│   ├── 03-test-flow.sh
-│   └── cleanup.sh
 └── schemas/
     ├── order-events.avsc
     ├── inventory-events.avsc

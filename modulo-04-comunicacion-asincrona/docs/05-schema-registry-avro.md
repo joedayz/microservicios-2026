@@ -484,4 +484,4 @@ Todos los consumers (v1, v2, v3) pueden leer cualquier versión.
 
 ---
 
-**Siguiente**: [06-spring-kafka.md](06-spring-kafka.md)
+**Siguiente**: [6. Eventual Consistency](06-eventual-consistency.md)

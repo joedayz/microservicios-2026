@@ -1,4 +1,4 @@
-# 7. Quarkus Messaging: MicroProfile Reactive, SmallRye
+# 8. Quarkus Messaging: MicroProfile Reactive, SmallRye
 
 ## Índice
 
@@ -511,4 +511,4 @@ class OrderProcessorTest {
 
 ---
 
-**Siguiente**: [08-operacionalizacion.md](08-operacionalizacion.md)
+**Siguiente**: [9. Operacionalización](09-operacionalizacion.md)

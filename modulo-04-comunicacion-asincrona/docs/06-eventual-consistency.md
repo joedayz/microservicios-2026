@@ -1,4 +1,4 @@
-# Eventual Consistency y Coherencia en Microservicios
+# 6. Eventual Consistency y Coherencia en Microservicios
 
 ## 1. Concepto de Eventual Consistency
 
@@ -326,3 +326,7 @@ public class EventualConsistencyTest {
 2. ❌ **Desventajas**: Complejidad, conflictos, coherencia temporal
 3. 🔧 **Soluciones**: Eventos, compensación, reconciliación
 4. 📊 **Monitoreo**: Checksums, replication lag, distributed tracing
+
+---
+
+**Siguiente**: [7. Spring Kafka](06-spring-kafka.md)

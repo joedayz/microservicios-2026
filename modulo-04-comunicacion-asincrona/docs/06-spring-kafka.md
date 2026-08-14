@@ -1,4 +1,4 @@
-# 6. Spring Kafka: Producers, Consumers, Templates
+# 7. Spring Kafka: Producers, Consumers, Templates
 
 ## Índice
 
@@ -521,4 +521,4 @@ class OrderIntegrationTest {
 
 ---
 
-**Siguiente**: [07-quarkus-messaging.md](07-quarkus-messaging.md)
+**Siguiente**: [8. Quarkus Messaging](07-quarkus-messaging.md)
