@@ -17,9 +17,9 @@ public class DemoDataSeeder {
     public CommandLineRunner seedInventory(InventoryItemRepository repository) {
         return args -> {
             if (repository.count() == 0) {
-                repository.save(new InventoryItem("p1", "demo", 100));
-                repository.save(new InventoryItem("p2", "demo", 50));
-                repository.save(new InventoryItem("p3", "demo", 0));
+                repository.save(new InventoryItem("SKU-001", "demo-tenant", 100));
+                repository.save(new InventoryItem("SKU-002", "demo-tenant", 50));
+                repository.save(new InventoryItem("SKU-003", "demo-tenant", 0));
             }
         };
     }

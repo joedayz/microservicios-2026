@@ -18,9 +18,9 @@ public class DemoDataSeeder {
     public CommandLineRunner seedProductStock(ProductStockRepository repository) {
         return args -> {
             if (repository.count() == 0) {
-                repository.save(new ProductStock("p1", "demo", 100));
-                repository.save(new ProductStock("p2", "demo", 50));
-                repository.save(new ProductStock("p3", "demo", 0));
+                repository.save(new ProductStock("SKU-001", "demo-tenant", 100));
+                repository.save(new ProductStock("SKU-002", "demo-tenant", 50));
+                repository.save(new ProductStock("SKU-003", "demo-tenant", 0));
             }
         };
     }
