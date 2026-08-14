@@ -1,0 +1,24 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: microservicios-m04
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      # Servicios de negocio
+      - containerPort: 30081
+        hostPort: 8081
+        protocol: TCP
+      - containerPort: 30084
+        hostPort: 8084
+        protocol: TCP
+      - containerPort: 30086
+        hostPort: 8086
+        protocol: TCP
+      # Kafka externo (para pruebas con kafka-console o scripts)
+      - containerPort: 30092
+        hostPort: 9092
+        protocol: TCP
+      # Kafka UI
+      - containerPort: 30090
+        hostPort: 8090
+        protocol: TCP

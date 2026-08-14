@@ -355,17 +355,36 @@ Puedes contar la historia en este orden:
 
 ### 11) Si quieres correr esto en Kind
 
-Si en vez de `podman compose` quieres desplegarlo sobre `kind`, la idea es la misma:
+El módulo incluye `k8s/` y `scripts/` listos — misma lógica de eventos, mismos consumer groups, sin cambiar una línea de código.
 
 ```bash
-kind create cluster --name microservices-demo
-kubectl create namespace event-demo
-kubectl apply -f k8s/
+cd modulo-04-comunicacion-asincrona
+
+# 1. Crear cluster Kind con port-mappings locales
+./scripts/01-kind-create.sh
+
+# 2. Build Maven → Podman → kind load → kubectl apply
+#    (Kafka arranca primero; los servicios esperan a que esté ready)
+./scripts/02-deploy.sh
+
+# 3. Smoke test: happy-path + 2 escenarios de compensación Saga
+./scripts/03-smoke.sh
+
+# 4. Limpiar todo
+./scripts/04-destroy.sh
 ```
 
-Y luego exponer los servicios con `kubectl port-forward` o un `NodePort/LoadBalancer` de prueba.
+Puertos disponibles en `localhost` tras el deploy:
 
-La lógica no cambia: la clave es conservar el mismo flujo de eventos y el mismo patrón de consumer groups.
+| Servicio          | URL                          |
+|-------------------|------------------------------|
+| order-service     | `http://localhost:8086`      |
+| catalog-service   | `http://localhost:8081`      |
+| inventory-service | `http://localhost:8084`      |
+| Kafka UI          | `http://localhost:8090`      |
+| Kafka (externo)   | `localhost:9092`             |
+
+La lógica no cambia: la clave es conservar el mismo flujo de eventos y el mismo patrón de consumer groups. Dentro del cluster los servicios se conectan a Kafka por DNS interno: `kafka:29092`.
 
 ### 12) Resumen de la demo
 
