@@ -1,0 +1,23 @@
+server:
+  port: ${SERVER_PORT:8087}
+
+spring:
+  application:
+    name: notification-service-spring
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/admin}
+
+notification:
+  mongo:
+    database-prefix: ${NOTIFICATION_DB_PREFIX:notifications}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    pe.joedayz.microservicios.notification: INFO

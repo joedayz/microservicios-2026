@@ -1,0 +1,4 @@
+CREATE DATABASE catalog_tienda_deportes;
+CREATE DATABASE catalog_libreria_lima;
+CREATE DATABASE inventory_tienda_deportes;
+CREATE DATABASE inventory_libreria_lima;

@@ -1,0 +1,47 @@
+server:
+  port: ${SERVER_PORT:8081}
+
+spring:
+  application:
+    name: catalog-service-spring
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  cache:
+    type: redis
+    redis:
+      time-to-live: 5m
+      cache-null-values: false
+
+catalog:
+  rate-limit:
+    max-requests-per-minute: ${CATALOG_RATE_LIMIT_PER_MINUTE:30}
+  tenants:
+    tienda_deportes:
+      jdbc-url: ${CATALOG_DB_TIENDA_DEPORTES_URL:jdbc:postgresql://localhost:5432/catalog_tienda_deportes}
+      username: ${CATALOG_DB_USERNAME:postgres}
+      password: ${CATALOG_DB_PASSWORD:postgres}
+    libreria_lima:
+      jdbc-url: ${CATALOG_DB_LIBRERIA_LIMA_URL:jdbc:postgresql://localhost:5432/catalog_libreria_lima}
+      username: ${CATALOG_DB_USERNAME:postgres}
+      password: ${CATALOG_DB_PASSWORD:postgres}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    pe.joedayz.microservicios.catalog: INFO

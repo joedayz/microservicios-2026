@@ -582,9 +582,9 @@ Con **Avro + Schema Registry**:
 
 ## Siguientes pasos
 
-- **Módulo 5**: Monitoreo, logging, distributed tracing (ELK, Jaeger).
-- **Módulo 6**: Deploy en AWS (MSK, EventBridge) y Azure (Event Hubs).
-- **Módulo 7**: Testing (testcontainers, embedded Kafka, chaos engineering).
+- **Módulo 5**: Persistencia políglota con PostgreSQL, MongoDB, Redis y multi-tenancy por base de datos.
+- **Módulo 6**: Monitoreo, logging y distributed tracing.
+- **Módulo 7**: Deploy en AWS y Azure.
 
 ---
 

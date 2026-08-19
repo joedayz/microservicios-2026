@@ -10,3 +10,4 @@ Microservicios con Java: **Spring Boot 4** y **Quarkus 3** — Curso JoeDayz.pe
 | [modulo-02-spring-boot-vs-quarkus](modulo-02-spring-boot-vs-quarkus/) | Spring MVC, WebFlux, Quarkus, GraalVM native, benchmarks |
 | [modulo-03-comunicacion-sincrona](modulo-03-comunicacion-sincrona/) | OpenAPI 3.1, gRPC, RestClient/WebClient, Feign, K8s LB, versionado |
 | [modulo-04-comunicacion-asincrona](modulo-04-comunicacion-asincrona/) | Kafka (topics, partitions, consumer groups, compaction), Event Sourcing, Saga, Transactional Outbox, Schema Registry + Avro |
+| [modulo-05-persistencia-poliglota](modulo-05-persistencia-poliglota/) | PostgreSQL con Spring Data JPA y Quarkus Panache, MongoDB, Redis, Flyway, Liquibase, multi-tenancy |
