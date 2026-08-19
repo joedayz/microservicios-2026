@@ -7,10 +7,12 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="catalog-service-webflux" />
+        <module name="catalog-service" />
+        <module name="catalog-service-spring" />
         <module name="modulo-01-fundamentos" />
         <module name="order-service" />
         <module name="catalog-service-mvc" />
-        <module name="catalog-service" />
+        <module name="inventory-service-quarkus" />
       </profile>
     </annotationProcessing>
   </component>
@@ -18,6 +20,7 @@
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="catalog-service" options="-parameters" />
       <module name="catalog-service-mvc" options="-parameters" />
+      <module name="catalog-service-spring" options="-parameters" />
       <module name="catalog-service-webflux" options="-parameters" />
       <module name="order-service" options="-parameters" />
     </option>

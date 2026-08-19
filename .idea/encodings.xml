@@ -7,5 +7,8 @@
     <file url="file://$PROJECT_DIR$/modulo-02-spring-boot-vs-quarkus/spring-boot-webflux/catalog-service/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/modulo-03-comunicacion-sincrona/catalog-service/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/modulo-03-comunicacion-sincrona/order-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/modulo-05-persistencia-poliglota/catalog-service-spring/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/modulo-05-persistencia-poliglota/inventory-service-quarkus/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/modulo-05-persistencia-poliglota/inventory-service-quarkus/src/main/resources" charset="UTF-8" />
   </component>
 </project>

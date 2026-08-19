@@ -5,14 +5,15 @@ import java.util.Map;
 
 import javax.sql.DataSource;
 
-import com.zaxxer.hikari.HikariDataSource;
-
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
+
+import com.zaxxer.hikari.HikariDataSource;
 
 import pe.joedayz.microservicios.catalog.tenant.TenantContext;
 import pe.joedayz.microservicios.catalog.tenant.TenantKeyNormalizer;
@@ -30,6 +31,7 @@ public class DataSourceConfig {
 
     @Bean
     @Primary
+    @DependsOn("tenantFlywayMigration")
     public DataSource dataSource(Map<String, DataSource> tenantDataSources) {
         TenantRoutingDataSource routingDataSource = new TenantRoutingDataSource();
         Map<Object, Object> targets = new LinkedHashMap<>(tenantDataSources);
