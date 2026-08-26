@@ -1,0 +1,39 @@
+server:
+  port: ${SERVER_PORT:8086}
+
+spring:
+  application:
+    name: order-service-spring
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/joedayz-microservices}
+
+module6:
+  inventory:
+    base-url: ${INVENTORY_INTERNAL_BASE_URL:https://localhost:8444}
+    client-id: ${INVENTORY_INTERNAL_CLIENT_ID:local-order-service}
+    simulate-call: ${INVENTORY_SIMULATE_CALL:true}
+    key-store-path: ${ORDER_TLS_KEYSTORE_PATH:../certs/order-service-client.p12}
+    key-store-password: ${ORDER_TLS_KEYSTORE_PASSWORD:changeit}
+    trust-store-path: ${ORDER_TLS_TRUSTSTORE_PATH:../certs/platform-truststore.p12}
+    trust-store-password: ${ORDER_TLS_TRUSTSTORE_PASSWORD:changeit}
+    timeout: 5s
+  vault:
+    enabled: ${VAULT_ENABLED:false}
+    address: ${VAULT_ADDR:http://localhost:8200}
+    token: ${VAULT_TOKEN:root}
+    kv-mount: ${VAULT_KV_MOUNT:secret}
+    path: ${VAULT_SECRET_PATH:module6/inventory-client}
+    field: ${VAULT_SECRET_FIELD:client-id}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    pe.joedayz.microservicios.security.order: INFO
