@@ -1,0 +1,150 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/joedayz-microservices}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  cloud:
+    gateway:
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: false
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins:
+                  - ${GATEWAY_ALLOWED_ORIGIN:http://localhost:3000}
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - DELETE
+                  - OPTIONS
+                allowedHeaders:
+                  - "*"
+                exposedHeaders:
+                  - X-Correlation-Id
+                  - X-Gateway-Region
+                allowCredentials: true
+          default-filters:
+            - name: DedupeResponseHeader
+              args:
+                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials
+                strategy: RETAIN_FIRST
+            - name: AddResponseHeader
+              args:
+                name: X-Gateway-Region
+                value: ${GATEWAY_REGION:LATAM}
+            - name: AddRequestHeader
+              args:
+                name: X-Forwarded-By
+                value: spring-cloud-gateway
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET
+                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT,SERVICE_UNAVAILABLE
+                backoff:
+                  firstBackoff: 150ms
+                  maxBackoff: 600ms
+                  factor: 2
+                  basedOnPreviousValue: true
+          routes:
+            - id: order-service
+              uri: ${ORDER_SERVICE_URL:http://localhost:8086}
+              predicates:
+                - Path=/gateway/orders/**
+              filters:
+                - StripPrefix=2
+                - name: CircuitBreaker
+                  args:
+                    name: orderCircuitBreaker
+                    fallbackUri: forward:/fallback/orders
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@tenantKeyResolver}"
+                    redis-rate-limiter.replenishRate: 5
+                    redis-rate-limiter.burstCapacity: 10
+                    redis-rate-limiter.requestedTokens: 1
+            - id: inventory-service
+              uri: ${INVENTORY_SERVICE_URL:http://localhost:8084}
+              predicates:
+                - Path=/gateway/inventory/**
+              filters:
+                - StripPrefix=2
+                - name: CircuitBreaker
+                  args:
+                    name: inventoryCircuitBreaker
+                    fallbackUri: forward:/fallback/inventory
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@tenantKeyResolver}"
+                    redis-rate-limiter.replenishRate: 10
+                    redis-rate-limiter.burstCapacity: 20
+                    redis-rate-limiter.requestedTokens: 1
+
+module7:
+  traffic:
+    default-timeout: ${GATEWAY_DEFAULT_TIMEOUT:2s}
+    order-timeout: ${GATEWAY_ORDER_TIMEOUT:3s}
+    inventory-timeout: ${GATEWAY_INVENTORY_TIMEOUT:2s}
+    hedge-delay: ${GATEWAY_HEDGE_DELAY:250ms}
+  waf:
+    enabled: ${GATEWAY_WAF_ENABLED:true}
+    blocked-user-agents:
+      - sqlmap
+      - nikto
+      - nessus
+      - dirbuster
+    blocked-path-fragments:
+      - ../
+      - "%2e%2e"
+      - <script
+      - union+select
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,metrics
+  endpoint:
+    gateway:
+      access: unrestricted
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      orderCircuitBreaker:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+      inventoryCircuitBreaker:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+  timelimiter:
+    instances:
+      orderCircuitBreaker:
+        timeoutDuration: ${GATEWAY_ORDER_TIMEOUT:3s}
+      inventoryCircuitBreaker:
+        timeoutDuration: ${GATEWAY_INVENTORY_TIMEOUT:2s}
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    pe.joedayz.microservicios.gateway: INFO

@@ -12,6 +12,7 @@
         <option value="$PROJECT_DIR$/modulo-03-comunicacion-sincrona/order-service/pom.xml" />
         <option value="$PROJECT_DIR$/modulo-05-persistencia-poliglota/catalog-service-spring/pom.xml" />
         <option value="$PROJECT_DIR$/modulo-05-persistencia-poliglota/inventory-service-quarkus/pom.xml" />
+        <option value="$PROJECT_DIR$/modulo-07-api-gateway-enrutamiento/inventory-service-quarkus/pom.xml" />
       </list>
     </option>
   </component>

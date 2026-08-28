@@ -6,6 +6,7 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+        <module name="inventory-service-quarkus (1)" />
         <module name="catalog-service-webflux" />
         <module name="catalog-service" />
         <module name="catalog-service-spring" />
