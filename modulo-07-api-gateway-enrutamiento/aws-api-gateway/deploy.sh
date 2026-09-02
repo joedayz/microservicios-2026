@@ -79,13 +79,8 @@ case "${1:-check}" in
         require aws "Instala AWS CLI"
         API_URL=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$REGION" \
             --query 'Stacks[0].Outputs[?OutputKey==`ApiInvokeUrl`].OutputValue' --output text)
-        KEY_ID=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$REGION" \
-            --query 'Stacks[0].Outputs[?OutputKey==`DemoApiKeyId`].OutputValue' --output text)
-        KEY_VALUE=$(aws apigateway get-api-key --api-key "$KEY_ID" --include-value \
-            --region "$REGION" --query 'value' --output text)
         info "URL: $API_URL"
-        info "Key: ${KEY_VALUE:0:8}..."
-        curl -i -H "x-api-key: $KEY_VALUE" \
+        curl -i \
             "$API_URL/gateway/inventory/api/v1/tenants/tienda-deportes/inventory/ZAP-RUN-42?region=PE" \
             || true
         ;;

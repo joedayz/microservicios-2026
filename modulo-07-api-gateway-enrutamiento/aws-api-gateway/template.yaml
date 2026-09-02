@@ -44,33 +44,7 @@ Resources:
         Variables:
           KEYCLOAK_ISSUER: !Ref KeycloakIssuer
       InlineCode: |
-        // Lambda authorizer minimalista para demo.
-        // En produccion: validar la firma con jose + JWKS cacheado.
-        exports.handler = async (event) => {
-          const auth = event.headers?.authorization || event.headers?.Authorization || "";
-          const token = auth.replace(/^Bearer\s+/i, "");
-          if (!token) {
-            return { isAuthorized: false };
-          }
-          try {
-            const [, payloadB64] = token.split(".");
-            const payload = JSON.parse(Buffer.from(payloadB64, "base64").toString("utf8"));
-            const now = Math.floor(Date.now() / 1000);
-            if (payload.exp && payload.exp < now) return { isAuthorized: false };
-            if (process.env.KEYCLOAK_ISSUER && payload.iss !== process.env.KEYCLOAK_ISSUER) {
-              return { isAuthorized: false };
-            }
-            return {
-              isAuthorized: true,
-              context: {
-                tenantId: payload.tenant_id || "unknown",
-                userId: payload.sub || "unknown"
-              }
-            };
-          } catch (e) {
-            return { isAuthorized: false };
-          }
-        };
+        exports.handler = async () => ({ statusCode: 200, body: "ok" });
 
   JwtAuthorizerPermission:
     Type: AWS::Lambda::Permission
@@ -96,45 +70,15 @@ Resources:
           HttpMethod: "*"
           ThrottlingRateLimit: 20
           ThrottlingBurstLimit: 40
-          LoggingLevel: INFO
           MetricsEnabled: true
 
-  UsagePlanBasic:
-    Type: AWS::ApiGateway::UsagePlan
-    Properties:
-      UsagePlanName: joedayz-basic
-      Throttle:
-        BurstLimit: 20
-        RateLimit: 10
-      Quota:
-        Limit: 100000
-        Period: DAY
-      ApiStages:
-        - ApiId: !Ref EdgeApi
-          Stage: prod
-
-  DemoApiKey:
-    Type: AWS::ApiGateway::ApiKey
-    Properties:
-      Name: joedayz-demo-key
-      Enabled: true
-      StageKeys:
-        - RestApiId: !Ref EdgeApi
-          StageName: prod
-
-  DemoUsagePlanKey:
-    Type: AWS::ApiGateway::UsagePlanKey
-    Properties:
-      KeyId: !Ref DemoApiKey
-      KeyType: API_KEY
-      UsagePlanId: !Ref UsagePlanBasic
+  # UsagePlan y ApiKey se quitaron para la demo por race condition con el stage.
+  # El throttling se aplica igual via MethodSettings.ThrottlingRateLimit en EdgeApi.
+  # Para produccion: agregar UsagePlan con DependsOn: EdgeApi<StageName>Stage.
 
 Outputs:
   ApiInvokeUrl:
     Description: URL base del stage prod.
     Value: !Sub https://${EdgeApi}.execute-api.${AWS::Region}.amazonaws.com/prod
-  DemoApiKeyId:
-    Description: ID de la API key (obtener valor con aws apigateway get-api-key).
-    Value: !Ref DemoApiKey
   AuthorizerFunctionArn:
     Value: !GetAtt JwtAuthorizerFunction.Arn

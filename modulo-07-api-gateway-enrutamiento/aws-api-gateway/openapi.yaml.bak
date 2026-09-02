@@ -42,8 +42,34 @@ x-amazon-apigateway-gateway-responses:
       application/json: |
         {"error":"unauthorized","message":"$context.error.message"}
 
+x-amazon-apigateway-policy:
+  Version: "2012-10-17"
+  Statement:
+    - Effect: Allow
+      Principal: "*"
+      Action: execute-api:Invoke
+      Resource: "execute-api:/*/*/*"
+    - Effect: Deny
+      Principal: "*"
+      Action: execute-api:Invoke
+      Resource: "execute-api:/*/*/*"
+      Condition:
+        StringNotEquals:
+          aws:SourceVpce: "vpce-xxxxxxxxxxxxxxxxx"
 
 components:
+  securitySchemes:
+    KeycloakJwt:
+      type: apiKey
+      name: Authorization
+      in: header
+      x-amazon-apigateway-authtype: custom
+      x-amazon-apigateway-authorizer:
+        type: request
+        authorizerUri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${JwtAuthorizerFunction.Arn}/invocations
+        authorizerResultTtlInSeconds: 60
+        identitySource: method.request.header.Authorization
 
   parameters:
     TenantId:
@@ -54,6 +80,8 @@ components:
         type: string
         pattern: '^[a-z0-9-]{3,64}$'
 
+security:
+  - KeycloakJwt: []
 
 paths:
   /gateway/orders/api/v1/tenants/{tenantId}/orders:
@@ -68,8 +96,9 @@ paths:
       x-amazon-apigateway-integration:
         type: http_proxy
         httpMethod: GET
-        uri: https://httpbin.org/api/v1/tenants/{tenantId}/orders
-        connectionType: INTERNET
+        uri: http://${stageVariables.orderBackend}/api/v1/tenants/{tenantId}/orders
+        connectionType: VPC_LINK
+        connectionId: ${stageVariables.vpcLinkId}
         timeoutInMillis: 3000
         passthroughBehavior: when_no_match
         requestParameters:
@@ -98,8 +127,9 @@ paths:
       x-amazon-apigateway-integration:
         type: http_proxy
         httpMethod: POST
-        uri: https://httpbin.org/api/v1/tenants/{tenantId}/orders
-        connectionType: INTERNET
+        uri: http://${stageVariables.orderBackend}/api/v1/tenants/{tenantId}/orders
+        connectionType: VPC_LINK
+        connectionId: ${stageVariables.vpcLinkId}
         timeoutInMillis: 3000
 
   /gateway/inventory/api/v1/tenants/{tenantId}/inventory/{sku}:
@@ -120,8 +150,9 @@ paths:
       x-amazon-apigateway-integration:
         type: http_proxy
         httpMethod: GET
-        uri: https://httpbin.org/api/v1/tenants/{tenantId}/inventory/{sku}
-        connectionType: INTERNET
+        uri: http://${stageVariables.inventoryBackend}/api/v1/tenants/{tenantId}/inventory/{sku}
+        connectionType: VPC_LINK
+        connectionId: ${stageVariables.vpcLinkId}
         timeoutInMillis: 2000
         requestParameters:
           integration.request.path.tenantId: method.request.path.tenantId

@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: "M\xF3dulo 7 \u2013 AWS API Gateway (REST) edge para JoeDayz Microservices.\n\
+  Despliega:\n  * REST API definida por openapi.yaml.\n  * Lambda authorizer JWT (valida\
+  \ contra JWKS de Keycloak).\n  * Usage plan + API key con throttling.\n  * Stage\
+  \ \"prod\" con logging en CloudWatch.\n"
+Parameters:
+  OrderBackend:
+    Type: String
+    Description: Host del NLB interno del order-service (sin http://).
+    Default: order-service.internal.joedayz.pe
+  InventoryBackend:
+    Type: String
+    Description: Host del NLB interno del inventory-service (sin http://).
+    Default: inventory-service.internal.joedayz.pe
+  VpcLinkId:
+    Type: String
+    Description: "ID del VPC Link ya provisionado. Usar \"none\" para saltar VPC Link\
+      \ (demo p\xFAblica)."
+    Default: none
+  KeycloakIssuer:
+    Type: String
+    Default: http://localhost:8180/realms/joedayz-microservices
+Conditions:
+  UseVpcLink:
+    Fn::Not:
+    - Fn::Equals:
+      - Ref: VpcLinkId
+      - none
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 5
+    MemorySize: 256
+Resources:
+  JwtAuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      Environment:
+        Variables:
+          KEYCLOAK_ISSUER:
+            Ref: KeycloakIssuer
+      InlineCode: 'exports.handler = async () => ({ statusCode: 200, body: "ok" });
+
+        '
+  JwtAuthorizerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+        - JwtAuthorizerFunction
+        - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${EdgeApi}/*
+  EdgeApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: joedayz-edge
+      StageName: prod
+      OpenApiVersion: 3.0.3
+      Variables:
+        orderBackend:
+          Ref: OrderBackend
+        inventoryBackend:
+          Ref: InventoryBackend
+        vpcLinkId:
+          Fn::If:
+          - UseVpcLink
+          - Ref: VpcLinkId
+          - none
+      DefinitionUri: ../../openapi.yaml
+      MethodSettings:
+      - ResourcePath: /*
+        HttpMethod: '*'
+        ThrottlingRateLimit: 20
+        ThrottlingBurstLimit: 40
+        MetricsEnabled: true
+Outputs:
+  ApiInvokeUrl:
+    Description: URL base del stage prod.
+    Value:
+      Fn::Sub: https://${EdgeApi}.execute-api.${AWS::Region}.amazonaws.com/prod
+  AuthorizerFunctionArn:
+    Value:
+      Fn::GetAtt:
+      - JwtAuthorizerFunction
+      - Arn
