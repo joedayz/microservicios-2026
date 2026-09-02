@@ -1,0 +1,106 @@
+<!--
+    Módulo 7 – Azure API Management: policy global.
+    Se aplica a todas las APIs del producto "joedayz-microservices-edge".
+    Reproduce las políticas cross-cutting del Spring Cloud Gateway:
+      * CORS
+      * Validación de JWT contra Keycloak
+      * Rate limiting por tenant (X-Tenant-ID)
+      * Correlation-Id
+      * WAF básico (bloqueo de user agents)
+-->
+<policies>
+    <inbound>
+        <base />
+
+        <!-- Correlation-Id ================================================ -->
+        <set-variable name="correlationId"
+                      value="@(context.Request.Headers.GetValueOrDefault("X-Correlation-Id", Guid.NewGuid().ToString()))" />
+        <set-header name="X-Correlation-Id" exists-action="override">
+            <value>@((string)context.Variables["correlationId"])</value>
+        </set-header>
+
+        <!-- CORS ========================================================== -->
+        <cors allow-credentials="true">
+            <allowed-origins>
+                <origin>http://localhost:3000</origin>
+                <origin>https://portal.joedayz.pe</origin>
+            </allowed-origins>
+            <allowed-methods>
+                <method>GET</method>
+                <method>POST</method>
+                <method>PUT</method>
+                <method>DELETE</method>
+                <method>OPTIONS</method>
+            </allowed-methods>
+            <allowed-headers>
+                <header>Authorization</header>
+                <header>Content-Type</header>
+                <header>X-Tenant-ID</header>
+                <header>X-Correlation-Id</header>
+            </allowed-headers>
+            <expose-headers>
+                <header>X-Correlation-Id</header>
+                <header>X-Gateway-Region</header>
+            </expose-headers>
+        </cors>
+
+        <!-- JWT ============================================================ -->
+        <validate-jwt header-name="Authorization"
+                      failed-validation-httpcode="401"
+                      failed-validation-error-message="Invalid or expired token"
+                      require-scheme="Bearer">
+            <openid-config url="http://localhost:8180/realms/joedayz-microservices/.well-known/openid-configuration" />
+            <required-claims>
+                <claim name="aud" match="any">
+                    <value>account</value>
+                    <value>student-portal</value>
+                </claim>
+            </required-claims>
+        </validate-jwt>
+
+        <!-- Rate limit por tenant ========================================= -->
+        <rate-limit-by-key calls="60"
+                           renewal-period="60"
+                           counter-key="@(context.Request.Headers.GetValueOrDefault("X-Tenant-ID","anonymous"))"
+                           increment-condition="@(context.Response.StatusCode < 500)" />
+
+        <!-- WAF básico: bloqueo de user agents ============================ -->
+        <choose>
+            <when condition="@{
+                var ua = context.Request.Headers.GetValueOrDefault("User-Agent","").ToLowerInvariant();
+                return ua.Contains("sqlmap") || ua.Contains("nikto")
+                    || ua.Contains("nessus") || ua.Contains("dirbuster");
+            }">
+                <return-response>
+                    <set-status code="403" reason="Blocked by WAF" />
+                    <set-header name="X-WAF-Action" exists-action="override">
+                        <value>blocked</value>
+                    </set-header>
+                    <set-body>{"error":"forbidden","reason":"user-agent"}</set-body>
+                </return-response>
+            </when>
+        </choose>
+
+        <set-header name="X-Forwarded-By" exists-action="override">
+            <value>azure-apim</value>
+        </set-header>
+    </inbound>
+
+    <backend>
+        <base />
+    </backend>
+
+    <outbound>
+        <base />
+        <set-header name="X-Gateway-Region" exists-action="override">
+            <value>@(context.Deployment.Region ?? "LATAM")</value>
+        </set-header>
+    </outbound>
+
+    <on-error>
+        <base />
+        <set-header name="X-Correlation-Id" exists-action="override">
+            <value>@((string)context.Variables.GetValueOrDefault("correlationId",""))</value>
+        </set-header>
+    </on-error>
+</policies>

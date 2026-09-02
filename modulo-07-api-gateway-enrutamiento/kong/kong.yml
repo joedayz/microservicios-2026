@@ -1,0 +1,132 @@
+_format_version: "3.0"
+_transform: true
+
+# ---------------------------------------------------------------------------
+# Módulo 7 - Kong Gateway (modo DB-less / declarative)
+#
+# Equivalente conceptual del Spring Cloud Gateway del módulo:
+#   * Routing hacia order-service (:8086) e inventory-service (:8084)
+#   * CORS global
+#   * Rate limiting por consumer / tenant
+#   * Circuit breaking simple vía health-checks + retries
+#   * WAF básico vía bot-detection e ip-restriction
+#   * Correlation-Id propagado
+# ---------------------------------------------------------------------------
+
+services:
+  - name: order-service
+    url: http://host.docker.internal:8086
+    connect_timeout: 2000
+    write_timeout: 3000
+    read_timeout: 3000
+    retries: 2
+    routes:
+      - name: order-route
+        paths:
+          - /gateway/orders
+        strip_path: true
+        preserve_host: false
+        methods: [GET, POST, PUT, DELETE, OPTIONS]
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: local
+          limit_by: header
+          header_name: X-Tenant-ID
+      - name: request-transformer
+        config:
+          add:
+            headers:
+              - "X-Forwarded-By:kong-gateway"
+              - "X-Gateway-Region:LATAM"
+      - name: bot-detection
+        config:
+          deny:
+            - sqlmap
+            - nikto
+            - nessus
+            - dirbuster
+
+  - name: inventory-service
+    url: http://host.docker.internal:8084
+    connect_timeout: 2000
+    write_timeout: 2000
+    read_timeout: 2000
+    retries: 2
+    routes:
+      - name: inventory-route
+        paths:
+          - /gateway/inventory
+        strip_path: true
+        methods: [GET, POST, PUT, DELETE, OPTIONS]
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 120
+          policy: local
+          limit_by: header
+          header_name: X-Tenant-ID
+      - name: proxy-cache
+        config:
+          response_code: [200]
+          request_method: [GET]
+          content_type: ["application/json; charset=utf-8"]
+          cache_ttl: 10
+          strategy: memory
+      - name: bot-detection
+        config:
+          deny:
+            - sqlmap
+            - nikto
+            - nessus
+            - dirbuster
+
+# ---------------------------------------------------------------------------
+# Plugins globales: aplican a todas las rutas.
+# ---------------------------------------------------------------------------
+plugins:
+  - name: cors
+    config:
+      origins:
+        - "http://localhost:3000"
+      methods: [GET, POST, PUT, DELETE, OPTIONS]
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+        - X-Tenant-ID
+        - X-Correlation-Id
+      exposed_headers:
+        - X-Correlation-Id
+        - X-Gateway-Region
+      credentials: true
+      max_age: 3600
+
+  - name: correlation-id
+    config:
+      header_name: X-Correlation-Id
+      generator: uuid
+      echo_downstream: true
+
+# NOTA: El plugin JWT se activa despues de la clase, cuando reemplaces la
+# clave publica del realm de Keycloak. Ver README.md seccion "Nota sobre JWT".
+#  - name: jwt
+#    config:
+#      key_claim_name: iss
+#      claims_to_verify:
+#        - exp
+
+# ---------------------------------------------------------------------------
+# Consumers de ejemplo. Descomentar tras poner la clave publica real.
+# ---------------------------------------------------------------------------
+# consumers:
+#   - username: tienda-deportes
+#     custom_id: tienda-deportes-tenant
+#     jwt_secrets:
+#       - key: http://localhost:8180/realms/joedayz-microservices
+#         algorithm: RS256
+#         rsa_public_key: |
+#           -----BEGIN PUBLIC KEY-----
+#           REEMPLAZAR_CON_CLAVE_PUBLICA_DE_KEYCLOAK
+#           -----END PUBLIC KEY-----

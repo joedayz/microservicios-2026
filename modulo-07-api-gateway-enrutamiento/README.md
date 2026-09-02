@@ -25,6 +25,9 @@ Al terminar este módulo serás capaz de:
 |----------|-----|-------|--------|
 | [api-gateway-service](api-gateway-service/) | Edge gateway, routing, CORS, throttling, retries, circuit breaker, WAF básico | Spring Boot 4 + Spring Cloud Gateway + Resilience4j + Redis | **8080** |
 | [inventory-service-quarkus](inventory-service-quarkus/) | Backend downstream para tráfico de inventario | Quarkus 3 + OIDC | **8084** / **8444** |
+| [kong/](kong/) | Kong Gateway equivalente (DB-less) con las mismas rutas y políticas | Kong 3.7 + docker-compose | **8000** / **8001** |
+| [aws-api-gateway/](aws-api-gateway/) | REST API desplegable en AWS (SAM + OpenAPI + Lambda authorizer) | AWS SAM + API Gateway + Lambda | cloud |
+| [azure-apim/](azure-apim/) | Azure API Management con Bicep + policies XML | Bicep + APIM Developer SKU | cloud |
 
 > El gateway enruta hacia el `order-service-spring` del **módulo 6** en `8086` y hacia el
 > `inventory-service-quarkus` de este módulo en `8084`.
@@ -124,11 +127,31 @@ curl -i http://localhost:8080/gateway/admin/traffic-policies
 
 ### Kong / AWS / Azure
 
-`GET /gateway/admin/traffic-policies` resume el mapeo conceptual:
+Cada gateway tiene su carpeta con **artefactos desplegables** y una guía `DEPLOY.md` didáctica (qué / por qué / hacer / verificar / troubleshooting).
 
-- **Kong**: plugins `rate-limiting`, `cors`, `proxy-cache`, `bot-detection`.
-- **AWS API Gateway**: usage plans, throttling, authorizers y AWS WAF.
-- **Azure API Management**: policies, `rate-limit-by-key`, JWT validation y multi-region gateway.
+| Gateway | Dónde corre | Deploy en un comando | Guía |
+|---------|-------------|----------------------|------|
+| **Kong Gateway** (DB-less) | 🐳 Local (Docker o Podman) | `./demo.sh up` · `.\demo.ps1 up` | [kong/DEPLOY.md](kong/DEPLOY.md) |
+| **AWS API Gateway** (SAM) | ☁️ Tu cuenta AWS | `./deploy.sh deploy` · `.\deploy.ps1 deploy` | [aws-api-gateway/DEPLOY.md](aws-api-gateway/DEPLOY.md) |
+| **Azure API Management** (Bicep) | ☁️ Tu subscription Azure | `./deploy.sh deploy` · `.\deploy.ps1 deploy` | [azure-apim/DEPLOY.md](azure-apim/DEPLOY.md) |
+
+**Matriz de compatibilidad por sistema:**
+
+| OS del alumno | Kong | AWS | Azure |
+|---------------|------|-----|-------|
+| macOS + Docker Desktop | `./demo.sh` | `./deploy.sh` | `./deploy.sh` |
+| macOS + Podman | `./demo.sh` (auto-detecta) | `./deploy.sh` | `./deploy.sh` |
+| Windows + Docker Desktop | `.\demo.ps1` o Git Bash | `.\deploy.ps1` o Git Bash | `.\deploy.ps1` o Git Bash |
+| Windows + Podman Desktop | `.\demo.ps1` | `.\deploy.ps1` | `.\deploy.ps1` |
+| Linux | `./demo.sh` | `./deploy.sh` | `./deploy.sh` |
+
+Cada implementación reproduce los mismos comportamientos del Spring Cloud Gateway:
+
+- **Kong**: `rate-limiting`, `cors`, `bot-detection`, `proxy-cache`, `correlation-id`, `jwt`.
+- **AWS API Gateway**: `UsagePlan` + `Throttle`, request validators, Lambda authorizer JWT, VPC Link, gateway responses `429`/`401`, hook para WAFv2.
+- **Azure APIM**: `<validate-jwt>`, `<rate-limit-by-key>`, `<cors>`, `<retry>` + fallback con `<return-response>`, `<cache-lookup>/<cache-store>`, `<rewrite-uri>`.
+
+El endpoint `GET /gateway/admin/traffic-policies` del gateway Spring resume el mapeo en runtime.
 
 ## Smoke test rápido
 
@@ -173,7 +196,30 @@ curl -i -H 'User-Agent: sqlmap/1.8' \
   http://localhost:8080/gateway/orders/api/v1/tenants/tienda-deportes/orders
 ```
 
+## Demo rápida (recomendado para clase)
+
+Para mostrar los 3 gateways en la misma sesión sin tiempos muertos:
+
+```bash
+# 1. Backends (order + inventory)
+cd modulo-06-seguridad-enterprise/order-service-spring && mvn spring-boot:run &
+cd modulo-07-api-gateway-enrutamiento/inventory-service-quarkus && mvn quarkus:dev &
+
+# 2. Spring Cloud Gateway (local, :8080)
+cd modulo-07-api-gateway-enrutamiento/api-gateway-service && mvn spring-boot:run &
+
+# 3. Kong (local, :8000) - < 60s
+cd modulo-07-api-gateway-enrutamiento/kong && ./demo.sh up && ./demo.sh smoke
+
+# 4. AWS API Gateway - ~3-5 min
+cd ../aws-api-gateway && ./deploy.sh deploy && ./deploy.sh test
+
+# 5. Azure APIM - pre-aprovisionar antes (30-45 min la primera vez)
+cd ../azure-apim && ./deploy.sh deploy   # solo actualiza policies si el APIM ya existe
+```
+
 ## Siguiente referencia
 
-El stack queda listo para extenderlo con una guía didáctica, manifests de Kong y ejemplos de
-policies para AWS/Azure sin tocar la base del gateway local.
+El stack tiene ahora los 3 gateways desplegables (Kong local, AWS y Azure en la nube) más
+el Spring Cloud Gateway como referencia local. Próximos pasos sugeridos: agregar
+observabilidad end-to-end (OpenTelemetry) y contract testing con Pact en el borde.

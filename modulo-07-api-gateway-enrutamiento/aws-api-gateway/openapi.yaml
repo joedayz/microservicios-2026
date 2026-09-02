@@ -1,0 +1,175 @@
+openapi: 3.0.3
+info:
+  title: JoeDayz Microservices Edge – AWS API Gateway
+  version: 1.0.0
+  description: |
+    Definición del edge del módulo 7 desplegable en **AWS API Gateway (REST)**.
+    Reproduce el enrutamiento y las políticas del `api-gateway-service`
+    (Spring Cloud Gateway) usando extensiones `x-amazon-apigateway-*`:
+
+      * `HTTP_PROXY` integrations hacia los backends del módulo.
+      * Request validator (params + body).
+      * Throttling por método y por usage plan.
+      * Lambda authorizer (JWT vía Keycloak) para rutas privadas.
+      * Referencia a WAFv2 y logging en CloudWatch (vía stage variables).
+
+    Desplegar:
+    ```bash
+    aws apigateway import-rest-api --body fileb://openapi.yaml
+    ```
+
+x-amazon-apigateway-request-validators:
+  full:
+    validateRequestBody: true
+    validateRequestParameters: true
+  params-only:
+    validateRequestBody: false
+    validateRequestParameters: true
+
+x-amazon-apigateway-request-validator: params-only
+
+x-amazon-apigateway-gateway-responses:
+  THROTTLED:
+    statusCode: "429"
+    responseTemplates:
+      application/json: |
+        {"error":"rate_limit_exceeded","message":"$context.error.message"}
+    responseParameters:
+      gatewayresponse.header.X-Gateway-Region: "'LATAM'"
+  UNAUTHORIZED:
+    statusCode: "401"
+    responseTemplates:
+      application/json: |
+        {"error":"unauthorized","message":"$context.error.message"}
+
+x-amazon-apigateway-policy:
+  Version: "2012-10-17"
+  Statement:
+    - Effect: Allow
+      Principal: "*"
+      Action: execute-api:Invoke
+      Resource: "execute-api:/*/*/*"
+    - Effect: Deny
+      Principal: "*"
+      Action: execute-api:Invoke
+      Resource: "execute-api:/*/*/*"
+      Condition:
+        StringNotEquals:
+          aws:SourceVpce: "vpce-xxxxxxxxxxxxxxxxx"
+
+components:
+  securitySchemes:
+    KeycloakJwt:
+      type: apiKey
+      name: Authorization
+      in: header
+      x-amazon-apigateway-authtype: custom
+      x-amazon-apigateway-authorizer:
+        type: request
+        authorizerUri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${JwtAuthorizerFunction.Arn}/invocations
+        authorizerResultTtlInSeconds: 60
+        identitySource: method.request.header.Authorization
+
+  parameters:
+    TenantId:
+      name: tenantId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z0-9-]{3,64}$'
+
+security:
+  - KeycloakJwt: []
+
+paths:
+  /gateway/orders/api/v1/tenants/{tenantId}/orders:
+    parameters:
+      - $ref: '#/components/parameters/TenantId'
+    get:
+      summary: List orders (proxied to order-service)
+      x-amazon-apigateway-request-validator: params-only
+      responses:
+        "200": { description: OK }
+        "429": { description: Throttled }
+      x-amazon-apigateway-integration:
+        type: http_proxy
+        httpMethod: GET
+        uri: http://${stageVariables.orderBackend}/api/v1/tenants/{tenantId}/orders
+        connectionType: VPC_LINK
+        connectionId: ${stageVariables.vpcLinkId}
+        timeoutInMillis: 3000
+        passthroughBehavior: when_no_match
+        requestParameters:
+          integration.request.path.tenantId: method.request.path.tenantId
+          integration.request.header.X-Forwarded-By: "'aws-api-gateway'"
+    post:
+      summary: Create order
+      x-amazon-apigateway-request-validator: full
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      sku: { type: string }
+                      quantity: { type: integer, minimum: 1 }
+      responses:
+        "201": { description: Created }
+      x-amazon-apigateway-integration:
+        type: http_proxy
+        httpMethod: POST
+        uri: http://${stageVariables.orderBackend}/api/v1/tenants/{tenantId}/orders
+        connectionType: VPC_LINK
+        connectionId: ${stageVariables.vpcLinkId}
+        timeoutInMillis: 3000
+
+  /gateway/inventory/api/v1/tenants/{tenantId}/inventory/{sku}:
+    parameters:
+      - $ref: '#/components/parameters/TenantId'
+      - name: sku
+        in: path
+        required: true
+        schema: { type: string }
+      - name: region
+        in: query
+        required: false
+        schema: { type: string, enum: [PE, MX, CO, CL, AR] }
+    get:
+      x-amazon-apigateway-request-validator: params-only
+      responses:
+        "200": { description: OK }
+      x-amazon-apigateway-integration:
+        type: http_proxy
+        httpMethod: GET
+        uri: http://${stageVariables.inventoryBackend}/api/v1/tenants/{tenantId}/inventory/{sku}
+        connectionType: VPC_LINK
+        connectionId: ${stageVariables.vpcLinkId}
+        timeoutInMillis: 2000
+        requestParameters:
+          integration.request.path.tenantId: method.request.path.tenantId
+          integration.request.path.sku: method.request.path.sku
+          integration.request.querystring.region: method.request.querystring.region
+
+# ---------------------------------------------------------------------------
+# Throttling & usage plans se aplican vía CloudFormation / consola.
+# Ejemplo (SAM):
+#
+# UsagePlanBasic:
+#   Type: AWS::ApiGateway::UsagePlan
+#   Properties:
+#     Throttle:
+#       BurstLimit: 20
+#       RateLimit: 10
+#     Quota:
+#       Limit: 100000
+#       Period: DAY
+# ---------------------------------------------------------------------------

@@ -1,0 +1,45 @@
+<!--
+    API "inventory" del edge Azure APIM.
+    Además de las policies globales, agrega:
+      * Cache de respuestas (equivalente a proxy-cache de Kong).
+      * Timeout menor (2s).
+      * Rewrite path.
+      * Rate limit específico más generoso (120 rpm).
+-->
+<policies>
+    <inbound>
+        <base />
+        <rate-limit-by-key calls="120"
+                           renewal-period="60"
+                           counter-key="@(context.Request.Headers.GetValueOrDefault("X-Tenant-ID","anonymous"))" />
+        <cache-lookup vary-by-developer="false"
+                      vary-by-developer-groups="false"
+                      allow-private-response-caching="false">
+            <vary-by-header>Accept</vary-by-header>
+            <vary-by-header>X-Tenant-ID</vary-by-header>
+            <vary-by-query-parameter>region</vary-by-query-parameter>
+        </cache-lookup>
+        <set-backend-service base-url="https://inventory-service.internal.joedayz.pe" />
+        <rewrite-uri template="@("/api/v1/tenants/"
+            + context.Request.MatchedParameters["tenantId"]
+            + "/inventory/"
+            + context.Request.MatchedParameters["sku"])" />
+    </inbound>
+
+    <backend>
+        <retry condition="@(context.Response.StatusCode >= 502
+                         && context.Response.StatusCode <= 504)"
+               count="2" interval="1" delta="1">
+            <forward-request timeout="2" fail-on-error-status-code="false" />
+        </retry>
+    </backend>
+
+    <outbound>
+        <base />
+        <cache-store duration="10" />
+    </outbound>
+
+    <on-error>
+        <base />
+    </on-error>
+</policies>

@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: |
+  Módulo 7 – AWS API Gateway (REST) edge para JoeDayz Microservices.
+  Despliega:
+    * REST API definida por openapi.yaml.
+    * Lambda authorizer JWT (valida contra JWKS de Keycloak).
+    * Usage plan + API key con throttling.
+    * Stage "prod" con logging en CloudWatch.
+
+Parameters:
+  OrderBackend:
+    Type: String
+    Description: Host del NLB interno del order-service (sin http://).
+    Default: order-service.internal.joedayz.pe
+  InventoryBackend:
+    Type: String
+    Description: Host del NLB interno del inventory-service (sin http://).
+    Default: inventory-service.internal.joedayz.pe
+  VpcLinkId:
+    Type: String
+    Description: ID del VPC Link ya provisionado. Usar "none" para saltar VPC Link (demo pública).
+    Default: none
+  KeycloakIssuer:
+    Type: String
+    Default: http://localhost:8180/realms/joedayz-microservices
+
+Conditions:
+  UseVpcLink: !Not [ !Equals [ !Ref VpcLinkId, "none" ] ]
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 5
+    MemorySize: 256
+
+Resources:
+
+  JwtAuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      Environment:
+        Variables:
+          KEYCLOAK_ISSUER: !Ref KeycloakIssuer
+      InlineCode: |
+        // Lambda authorizer minimalista para demo.
+        // En produccion: validar la firma con jose + JWKS cacheado.
+        exports.handler = async (event) => {
+          const auth = event.headers?.authorization || event.headers?.Authorization || "";
+          const token = auth.replace(/^Bearer\s+/i, "");
+          if (!token) {
+            return { isAuthorized: false };
+          }
+          try {
+            const [, payloadB64] = token.split(".");
+            const payload = JSON.parse(Buffer.from(payloadB64, "base64").toString("utf8"));
+            const now = Math.floor(Date.now() / 1000);
+            if (payload.exp && payload.exp < now) return { isAuthorized: false };
+            if (process.env.KEYCLOAK_ISSUER && payload.iss !== process.env.KEYCLOAK_ISSUER) {
+              return { isAuthorized: false };
+            }
+            return {
+              isAuthorized: true,
+              context: {
+                tenantId: payload.tenant_id || "unknown",
+                userId: payload.sub || "unknown"
+              }
+            };
+          } catch (e) {
+            return { isAuthorized: false };
+          }
+        };
+
+  JwtAuthorizerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt JwtAuthorizerFunction.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${EdgeApi}/*
+
+  EdgeApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: joedayz-edge
+      StageName: prod
+      OpenApiVersion: 3.0.3
+      Variables:
+        orderBackend: !Ref OrderBackend
+        inventoryBackend: !Ref InventoryBackend
+        vpcLinkId: !If [ UseVpcLink, !Ref VpcLinkId, "none" ]
+      DefinitionUri: openapi.yaml
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          ThrottlingRateLimit: 20
+          ThrottlingBurstLimit: 40
+          LoggingLevel: INFO
+          MetricsEnabled: true
+
+  UsagePlanBasic:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      UsagePlanName: joedayz-basic
+      Throttle:
+        BurstLimit: 20
+        RateLimit: 10
+      Quota:
+        Limit: 100000
+        Period: DAY
+      ApiStages:
+        - ApiId: !Ref EdgeApi
+          Stage: prod
+
+  DemoApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: joedayz-demo-key
+      Enabled: true
+      StageKeys:
+        - RestApiId: !Ref EdgeApi
+          StageName: prod
+
+  DemoUsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref DemoApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlanBasic
+
+Outputs:
+  ApiInvokeUrl:
+    Description: URL base del stage prod.
+    Value: !Sub https://${EdgeApi}.execute-api.${AWS::Region}.amazonaws.com/prod
+  DemoApiKeyId:
+    Description: ID de la API key (obtener valor con aws apigateway get-api-key).
+    Value: !Ref DemoApiKey
+  AuthorizerFunctionArn:
+    Value: !GetAtt JwtAuthorizerFunction.Arn

@@ -1,0 +1,56 @@
+<!--
+    API "orders" del edge Azure APIM.
+    Se aplica sobre la operación /api/v1/tenants/{tenantId}/orders.
+    Aporta:
+      * Reintentos con backoff exponencial para GET.
+      * Timeout dedicado.
+      * Circuit-breaker (fallback a servicio degradado) usando <retry> + <choose>.
+      * Reescritura de path (equivalente a StripPrefix=2 del SCG).
+-->
+<policies>
+    <inbound>
+        <base />
+        <rewrite-uri template="@("/api/v1/tenants/" + context.Request.MatchedParameters["tenantId"] + "/orders")" />
+        <set-backend-service base-url="https://order-service.internal.joedayz.pe" />
+        <set-header name="X-Backend" exists-action="override">
+            <value>order-service</value>
+        </set-header>
+    </inbound>
+
+    <backend>
+        <retry condition="@(context.Response.StatusCode == 502
+                        || context.Response.StatusCode == 503
+                        || context.Response.StatusCode == 504)"
+               count="2"
+               interval="1"
+               max-interval="4"
+               delta="1"
+               first-fast-retry="false">
+            <forward-request timeout="3" fail-on-error-status-code="false" />
+        </retry>
+    </backend>
+
+    <outbound>
+        <base />
+        <!-- Fallback tipo circuit breaker -->
+        <choose>
+            <when condition="@(context.Response.StatusCode >= 500)">
+                <return-response>
+                    <set-status code="503" reason="degraded" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>{
+  "service":"order-service",
+  "status":"degraded",
+  "message":"Backend inestable, respuesta servida por APIM."
+}</set-body>
+                </return-response>
+            </when>
+        </choose>
+    </outbound>
+
+    <on-error>
+        <base />
+    </on-error>
+</policies>
