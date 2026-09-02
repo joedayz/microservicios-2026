@@ -95,7 +95,7 @@ export KEYCLOAK_ISSUER=http://localhost:8180/realms/joedayz-microservices
 **Qué hace paso a paso:**
 1. `sam build --template template.yaml` → empaqueta la Lambda inline y valida OpenAPI.
 2. `sam deploy` → sube artefactos a S3 y crea/actualiza el stack CloudFormation.
-3. Imprime los outputs: `ApiInvokeUrl`, `DemoApiKeyId`, `AuthorizerFunctionArn`.
+3. Imprime los outputs: `ApiInvokeUrl`, `AuthorizerFunctionArn`.
 
 Tiempo esperado: **2–4 min** la primera vez, **~1 min** en updates.
 
@@ -105,26 +105,24 @@ Tiempo esperado: **2–4 min** la primera vez, **~1 min** en updates.
 ./deploy.sh test
 ```
 
-Recupera la API key con `aws apigateway get-api-key --include-value` y hace un
-`GET` con header `x-api-key`.
+Hace un `GET` directo (sin API key — el throttling está a nivel de método, no por key).
 
 ### Paso 5 – Ver throttling en vivo
 
 ```bash
 API_URL=$(aws cloudformation describe-stacks --stack-name joedayz-edge-modulo7 \
+  --region us-east-1 \
   --query 'Stacks[0].Outputs[?OutputKey==`ApiInvokeUrl`].OutputValue' --output text)
-KEY=$(aws apigateway get-api-key \
-  --api-key $(aws cloudformation describe-stacks --stack-name joedayz-edge-modulo7 \
-    --query 'Stacks[0].Outputs[?OutputKey==`DemoApiKeyId`].OutputValue' --output text) \
-  --include-value --query value --output text)
 
-for i in $(seq 1 60); do
-  curl -o /dev/null -s -w "%{http_code}\n" -H "x-api-key: $KEY" \
-    "$API_URL/gateway/inventory/api/v1/tenants/tienda-deportes/inventory/ABC?region=PE"
+for i in $(seq 1 100); do
+  curl -o /dev/null -s -w "%{http_code}\n" \
+    "$API_URL/gateway/orders/api/v1/tenants/tienda-deportes/orders?n=$i"
 done | sort | uniq -c
 ```
 
-Verás `200` y `429` mezclados (throttling activo).
+Verás `200` y `429` mezclados (`ThrottlingBurstLimit: 40`, `RateLimit: 20/s` en `template.yaml`).
+
+> 💡 **API Gateway usa CloudFront por debajo.** Los errores `4xx` se cachean unos minutos en el edge. Si un `403` no desaparece tras un `update-rest-api`, agrega un query string único (`?_=$RANDOM`) para bypass del cache.
 
 ### Paso 6 – Destruir
 

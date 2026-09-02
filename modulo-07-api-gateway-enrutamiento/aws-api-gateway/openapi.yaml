@@ -68,7 +68,7 @@ paths:
       x-amazon-apigateway-integration:
         type: http_proxy
         httpMethod: GET
-        uri: https://httpbin.org/api/v1/tenants/{tenantId}/orders
+        uri: https://httpbin.org/anything
         connectionType: INTERNET
         timeoutInMillis: 3000
         passthroughBehavior: when_no_match
@@ -98,7 +98,7 @@ paths:
       x-amazon-apigateway-integration:
         type: http_proxy
         httpMethod: POST
-        uri: https://httpbin.org/api/v1/tenants/{tenantId}/orders
+        uri: https://httpbin.org/anything
         connectionType: INTERNET
         timeoutInMillis: 3000
 
@@ -120,7 +120,7 @@ paths:
       x-amazon-apigateway-integration:
         type: http_proxy
         httpMethod: GET
-        uri: https://httpbin.org/api/v1/tenants/{tenantId}/inventory/{sku}
+        uri: https://httpbin.org/anything
         connectionType: INTERNET
         timeoutInMillis: 2000
         requestParameters:
