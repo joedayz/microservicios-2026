@@ -1,0 +1,120 @@
+server:
+  port: ${SERVER_PORT:8087}
+
+spring:
+  application:
+    name: order-service-spring
+
+modulo8:
+  inventory:
+    base-url: ${INVENTORY_BASE_URL:http://localhost:8085}
+    connect-timeout: 2s
+    read-timeout: 3s
+  flaky:
+    base-url: ${FLAKY_BASE_URL:http://localhost:8090}
+    connect-timeout: 1s
+    read-timeout: 2s
+
+# --------------------------------------------------------------------
+# Resilience4j
+#   Orden efectivo por decorador (annotation order):
+#   Bulkhead -> TimeLimiter -> CircuitBreaker -> Retry -> Fallback
+# --------------------------------------------------------------------
+resilience4j:
+  circuitbreaker:
+    instances:
+      inventoryClient:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50           # % de fallos para abrir
+        slowCallRateThreshold: 60          # % de calls lentas para abrir
+        slowCallDurationThreshold: 800ms
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        recordExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.RestClientException
+      riskClient:
+        slidingWindowType: TIME_BASED
+        slidingWindowSize: 10              # segundos
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 40
+        waitDurationInOpenState: 8s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        recordExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.RestClientException
+
+  retry:
+    instances:
+      inventoryClient:
+        maxAttempts: 3
+        waitDuration: 300ms
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+      riskClient:
+        maxAttempts: 2
+        waitDuration: 200ms
+        retryExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+
+  timelimiter:
+    instances:
+      inventoryClient:
+        timeoutDuration: 1500ms
+        cancelRunningFuture: true
+      riskClient:
+        timeoutDuration: 1200ms
+        cancelRunningFuture: true
+
+  bulkhead:
+    instances:
+      inventoryClient:
+        maxConcurrentCalls: 25
+        maxWaitDuration: 100ms
+      riskClient:
+        maxConcurrentCalls: 15
+        maxWaitDuration: 50ms
+
+# --------------------------------------------------------------------
+# Actuator: probes (liveness/readiness/startup) + CB endpoints + Prometheus
+# --------------------------------------------------------------------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,circuitbreakers,circuitbreakerevents,retries,retryevents,bulkheads,timelimiters
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState,diskSpace
+        readiness:
+          include: readinessState,downstreamCircuitBreakers
+  health:
+    circuitbreakers:
+      enabled: true
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    pe.joedayz.microservicios.resilience.order: INFO
+    io.github.resilience4j: INFO
+

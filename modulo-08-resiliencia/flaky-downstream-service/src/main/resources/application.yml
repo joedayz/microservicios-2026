@@ -1,0 +1,21 @@
+server:
+  port: ${SERVER_PORT:8090}
+
+spring:
+  application:
+    name: flaky-downstream-service
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    pe.joedayz.microservicios.resilience.flaky: INFO
+

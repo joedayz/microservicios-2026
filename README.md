@@ -12,3 +12,5 @@ Microservicios con Java: **Spring Boot 4** y **Quarkus 3** — Curso JoeDayz.pe
 | [modulo-04-comunicacion-asincrona](modulo-04-comunicacion-asincrona/) | Kafka (topics, partitions, consumer groups, compaction), Event Sourcing, Saga, Transactional Outbox, Schema Registry + Avro |
 | [modulo-05-persistencia-poliglota](modulo-05-persistencia-poliglota/) | PostgreSQL con Spring Data JPA y Quarkus Panache, MongoDB, Redis, Flyway, Liquibase, multi-tenancy |
 | [modulo-06-seguridad-enterprise](modulo-06-seguridad-enterprise/) | Keycloak, OAuth2/OIDC, JWT, mTLS, Spring Security Resource Server, Quarkus OIDC, RBAC/ABAC, Vault |
+| [modulo-07-api-gateway-enrutamiento](modulo-07-api-gateway-enrutamiento/) | Spring Cloud Gateway, Kong, AWS API Gateway, Azure APIM, routing, rate limiting, WAF, hedging |
+| [modulo-08-resiliencia](modulo-08-resiliencia/) | Resilience4j (Circuit Breaker, Retry, TimeLimiter, Bulkhead), SmallRye Fault Tolerance, health checks (liveness/readiness/startup), probes K8s, chaos downstream |
