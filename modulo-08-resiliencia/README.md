@@ -234,6 +234,6 @@ Invoke-RestMethod -Method Post http://localhost:8090/flaky/config `
 
 ## Siguiente referencia
 
-Con la plataforma ya resistente a fallos, el próximo módulo se enfoca en
-**observabilidad end-to-end** (OpenTelemetry, tracing distribuido, logs correlacionados).
+Con la plataforma ya resistente a fallos, el [módulo 9](../modulo-09-observabilidad/)
+instrumenta **este mismo checkout** con OpenTelemetry, Prometheus, Grafana, Tempo y Loki.
 

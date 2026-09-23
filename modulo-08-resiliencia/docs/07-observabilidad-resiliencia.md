@@ -143,5 +143,5 @@ Con estas 7 lecturas + los 3 proyectos ejecutables (Spring Boot 4, Quarkus 3, fl
 - Instrumentación con Prometheus.
 - Scripts para reproducir escenarios de fallo.
 
-El próximo paso natural es **observabilidad end-to-end** con OpenTelemetry (tracing distribuido de la orden completa: gateway → order → inventory → pricing).
+El siguiente paso es el [módulo 9](../../modulo-09-observabilidad/): la misma orden, de punta a punta, en Tempo y Loki (order → inventory → pricing/risk), con el `traceId` y el `tenant.id` juntos.
 

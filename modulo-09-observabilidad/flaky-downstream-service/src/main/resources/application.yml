@@ -1,0 +1,54 @@
+server:
+  port: ${SERVER_PORT:8090}
+
+spring:
+  application:
+    name: flaky-downstream-service
+  threads:
+    virtual:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  # Metricas por scrape de Prometheus, no por OTLP.
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  tracing:
+    sampling:
+      probability: 1.0
+    baggage:
+      remote-fields: tenant.id
+      correlation:
+        fields: tenant.id
+  opentelemetry:
+    resource-attributes:
+      service.namespace: ecommerce
+      deployment.environment: local
+    tracing:
+      export:
+        schedule-delay: 1s
+        otlp:
+          endpoint: ${OTEL_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+          transport: http
+    logging:
+      export:
+        schedule-delay: 1s
+        otlp:
+          endpoint: ${OTEL_LOGS_ENDPOINT:http://localhost:4318/v1/logs}
+          transport: http
+
+logging:
+  level:
+    pe.joedayz.microservicios.observability.flaky: INFO

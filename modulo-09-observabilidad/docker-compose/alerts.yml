@@ -1,0 +1,22 @@
+groups:
+  - name: ecommerce
+    rules:
+      - alert: CircuitBreakerOpen
+        expr: resilience4j_circuitbreaker_state{state="open"} == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Circuit breaker {{ $labels.name }} abierto"
+
+      - alert: OrderErrorRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{job="order-service-spring",status=~"5.."}[5m]))
+          /
+          sum(rate(http_server_requests_seconds_count{job="order-service-spring"}[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "order-service responde 5xx por encima del 5%"

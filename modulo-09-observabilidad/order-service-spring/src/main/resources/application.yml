@@ -1,0 +1,152 @@
+server:
+  port: ${SERVER_PORT:8087}
+
+spring:
+  application:
+    name: order-service-spring
+  threads:
+    virtual:
+      enabled: true
+
+modulo9:
+  inventory:
+    base-url: ${INVENTORY_BASE_URL:http://localhost:8085}
+    connect-timeout: 2s
+    read-timeout: 3s
+  flaky:
+    base-url: ${FLAKY_BASE_URL:http://localhost:8090}
+    connect-timeout: 1s
+    read-timeout: 2s
+
+# --------------------------------------------------------------------
+# Resilience4j — misma politica que el modulo 8.
+#   Bulkhead -> TimeLimiter -> CircuitBreaker -> Retry -> Fallback
+# --------------------------------------------------------------------
+resilience4j:
+  circuitbreaker:
+    instances:
+      inventoryClient:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        slowCallRateThreshold: 60
+        slowCallDurationThreshold: 800ms
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        recordExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.RestClientException
+      riskClient:
+        slidingWindowType: TIME_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 40
+        waitDurationInOpenState: 8s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        recordExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.RestClientException
+  retry:
+    instances:
+      inventoryClient:
+        maxAttempts: 3
+        waitDuration: 300ms
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+      riskClient:
+        maxAttempts: 2
+        waitDuration: 200ms
+        retryExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+  timelimiter:
+    instances:
+      inventoryClient:
+        timeoutDuration: 1500ms
+        cancelRunningFuture: true
+      riskClient:
+        timeoutDuration: 1200ms
+        cancelRunningFuture: true
+  bulkhead:
+    instances:
+      inventoryClient:
+        maxConcurrentCalls: 25
+        maxWaitDuration: 100ms
+      riskClient:
+        maxConcurrentCalls: 15
+        maxWaitDuration: 50ms
+
+# --------------------------------------------------------------------
+# Observabilidad
+#   - Prometheus scrapea /actuator/prometheus (pull, como en el modulo 8)
+#   - Trazas y logs salen por OTLP hacia el collector (push)
+#   - sampling 1.0: en clase queremos ver cada orden
+#   - baggage tenant.id viaja a los downstreams y al MDC
+# --------------------------------------------------------------------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,circuitbreakers,circuitbreakerevents,retries,retryevents,bulkheads,timelimiters
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState,diskSpace
+        readiness:
+          include: readinessState,downstreamCircuitBreakers
+  health:
+    circuitbreakers:
+      enabled: true
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  # Las metricas se quedan en Prometheus (pull). Si esto queda en true,
+  # Micrometer empuja OTLP a :4318 y el collector, que no tiene pipeline
+  # de metricas, llena la consola de errores de conexion.
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  tracing:
+    sampling:
+      probability: 1.0
+    baggage:
+      remote-fields: tenant.id
+      correlation:
+        fields: tenant.id
+  opentelemetry:
+    resource-attributes:
+      service.namespace: ecommerce
+      deployment.environment: local
+    tracing:
+      export:
+        schedule-delay: 1s
+        otlp:
+          endpoint: ${OTEL_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+          transport: http
+    logging:
+      export:
+        schedule-delay: 1s
+        otlp:
+          endpoint: ${OTEL_LOGS_ENDPOINT:http://localhost:4318/v1/logs}
+          transport: http
+
+logging:
+  level:
+    pe.joedayz.microservicios.observability.order: INFO
+    io.github.resilience4j: INFO

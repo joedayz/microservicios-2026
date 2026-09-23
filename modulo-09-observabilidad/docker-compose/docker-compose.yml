@@ -1,0 +1,90 @@
+# Stack local del modulo 9.
+# Los servicios Java de order e inventory corren en el host (mvn) para poder
+# debuggearlos. flaky corre aqui, igual que en el modulo 8.
+# Prometheus scrapea el host via host.docker.internal.
+
+services:
+  flaky-downstream:
+    build:
+      context: ../flaky-downstream-service
+    image: modulo9/flaky-downstream:1.0.0
+    container_name: modulo9-flaky
+    ports:
+      - "8090:8090"
+    environment:
+      OTEL_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
+      OTEL_LOGS_ENDPOINT: http://otel-collector:4318/v1/logs
+    depends_on:
+      - otel-collector
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8090/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 8
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.128.0
+    container_name: modulo9-otel-collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    depends_on:
+      - tempo
+      - loki
+
+  tempo:
+    image: grafana/tempo:2.7.2
+    container_name: modulo9-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    ports:
+      - "3200:3200"
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml:ro
+
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: modulo9-loki
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki.yaml:/etc/loki/local-config.yaml:ro
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: modulo9-prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=6h
+      - --enable-feature=exemplar-storage
+      - --web.enable-remote-write-receiver
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    container_name: modulo9-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Editor
+      GF_USERS_DEFAULT_THEME: light
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
